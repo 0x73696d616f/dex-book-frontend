@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat&display=swap');
+
 .container {
   display: grid;
   grid-template-columns: 1fr;
@@ -15,7 +17,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background-color: #202020;
+  background-color: #202020; /*#282828*/
   padding: 0.5em;
 }
 
@@ -23,34 +25,47 @@
   height: 50%;
   background-color: #282828;
   padding: 0.5em;
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+  border-radius: 1em;
 }
 
 .sixtyPercentLine {
   height: 60%;
   background-color: #282828;
   padding: 0.5em;
+  margin-bottom: 0.5em; /* Add margin between the lines */
+  margin-top: 0.5em;
+  border-radius: 1em;
 }
 
 .fortyPercentLine {
   height: 40%;
   background-color: #282828;
   padding: 0.5em;
+  margin-bottom: 0.5em; /* Add margin between the lines */
+  margin-top: 0.5em;
+  border-radius: 1em;
 }
 
 .fortyFivePercentLine {
   height: 45%;
   background-color: #282828;
   padding: 0.5em;
+  margin-bottom: 0.5em; /* Add margin between the lines */
+  margin-top: 0.5em;
+  border-radius: 1em;
 }
 
 .tenPercentLine {
   height: 10%;
   background-color: #282828;
   padding: 0.5em;
+  border-radius: 1em;
 }
 
 .navbar {
-  background-color: #202020;
+  background-color: #202020; /*#282828*/
   color: #fff;
   height: 5vh;
   display: flex;
@@ -59,7 +74,52 @@
 }
 
 .navbar h1 {
-  margin: 0;
-  font-size: 20px;
+  font-size: 1.5em;
   color: #fff;
+  text-align: center; /* Center the text */
+  display: flex; /* Add flex display */
+  align-items: center; /* Vertically center the text */
+  justify-content: center; /* Horizontally center the text */
+  flex:1 0 auto;
+  margin-top: 0.5em;
+}
+
+.buttonContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1em;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+.buySellMenu {
+  position: relative;
+  margin-top: 2%;
+}
+
+.menuItem {
+  width: 100%;
+  margin: 0.5em;
+}
+
+.menuItem input {
+  color: white;
+  font-family: 'Montserrat', sans-serif;
+}
+
+
+.menuItem input::placeholder {
+  color: #ffffff;
+}
+
+.myApp {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.switchContainer {
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  margin: 1em;
+  font-family: 'Montserrat', sans-serif !important;
 }
