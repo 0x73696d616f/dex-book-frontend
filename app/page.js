@@ -2,10 +2,11 @@
 
 import './OrderTable.css';
 import './MyOrderTable.css';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
 import { Input } from "@nextui-org/react";
+import Chart from 'chart.js/auto';
 
 export default function Home() {
   const [isMarketClicked, setMarketClicked] = useState(false);
@@ -13,11 +14,48 @@ export default function Home() {
   const [isBuyOrdersClicked, setBuyOrdersClicked] = useState(false);
   const [isSellOrdersClicked, setSellOrdersClicked] = useState(true);
 
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (chartRef && chartRef.current) {
+      const ctx = chartRef.current.getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(item => item.time), // Array of time values for the x-axis
+          datasets: [
+            {
+              label: 'Price',
+              data: data.map(item => item.price), // Array of price values for the y-axis
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              borderColor: 'rgba(75, 192, 192, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          scales: {
+            x: {
+              type: 'time', // Use time scale for x-axis
+              time: {
+                unit: 'day' // Display time in days (you can customize this based on your data)
+              }
+            },
+            y: {
+              beginAtZero: true // Start y-axis from zero
+            }
+          }
+        }
+      });
+    }
+  }, [data]);
+
+
   const buyColor = "green"
   const sellColor = "red"
 
-  const buyButton = {width: "100%", margin: "0.5em", color: buyColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif'}
-  const sellButton = {width: "100%", margin: "0.5em", color: sellColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif'}
+  const buyButton = {width: "100%", margin: "0.5em", color: buyColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif', maxHeight: "100%"}
+  const sellButton = {width: "100%", margin: "0.5em", color: sellColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif', maxHeight: "100%"}
   const switchButton = {marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif'}
 
   const orders = [
@@ -33,8 +71,8 @@ export default function Home() {
     { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
     { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
     { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    
   ];
+
   const buyOrders = [
     { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
     { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
@@ -145,31 +183,29 @@ export default function Home() {
         <div className={styles.column}>
           <div className={styles.sixtyPercentLine}>Line 2 (60%)</div>
           <div className={styles.fortyPercentLine}>
-            <div className={styles.buySellMenu}>
-              <div className={styles.switchContainer}>
-                <Button size="xs" style={isLimitClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleLimitClick}>Limit</Button>    
-                <Button size="xs" style={isMarketClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleMarketClick}>Market</Button>          
+            <div className={styles.switchContainer}>
+              <Button size="xs" style={isLimitClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleLimitClick}>Limit</Button>    
+              <Button size="xs" style={isMarketClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleMarketClick}>Market</Button>          
+            </div>
+            <div className={styles.buttonContainer}>
+              <div className={styles.menuItem}>
+                <Input auto color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
               </div>
-              <div className={styles.buttonContainer}>
-                <div className={styles.menuItem}>
-                  <Input color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
-                </div>
-                <div className={styles.menuItem}>
-                  <Input color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
-                </div>
+              <div className={styles.menuItem}>
+                <Input auto color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
               </div>
-              <div className={styles.buttonContainer}>
-                <div className={styles.menuItem}>
-                  <Input color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? "USDC" : "WETH"} css={{ $$inputColor: "#525257" }}/>
-                </div>
-                <div className={styles.menuItem}>
-                  <Input color="white" width="100%" placeholder="amount" labelRight={"WETH"} css={{ $$inputColor: "#525257" }}/>
-                </div>
+            </div>
+            <div className={styles.buttonContainer}>
+              <div className={styles.menuItem}>
+                <Input auto color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? "USDC" : "WETH"} css={{ $$inputColor: "#525257" }}/>
               </div>
-              <div className={styles.buttonContainer}>
-                <Button style={sellButton}>Sell</Button>
-                <Button style={buyButton}>Buy</Button>
+              <div className={styles.menuItem}>
+                <Input auto color="white" width="100%" placeholder="amount" labelRight={"WETH"} css={{ $$inputColor: "#525257" }}/>
               </div>
+            </div>
+            <div className={styles.buttonContainer}>
+              <Button auto style={sellButton}>Sell</Button>
+              <Button auto style={buyButton}>Buy</Button>
             </div>
           </div>
         </div>

@@ -94,13 +94,6 @@
   align-items: center;
   margin: 1em;
   font-family: 'Montserrat', sans-serif !important;
-  height: 20%;
-}
-
-.buySellMenu {
-  position: relative;
-  margin-top: 2%;
-  height: 100%;
 }
 
 .menuItem {
