@@ -1,0 +1,29 @@
+.order-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .order-table th {
+    padding: 0.1em;
+    color: grey;
+    text-align: left;
+  }
+
+  .order-table td {
+    color: rgb(161, 161, 161);
+    padding: 0.1em;
+    text-align: left;
+    font-weight: bold;
+  }
+  
+  .order-table th {
+    background-color: #282828;
+  }
+  
+  .order-table tbody tr:hover {
+    background-color: rgb(60, 60, 60);
+  }
+  
+  .order-table tbody td {
+    margin: -10px 0;
+  }

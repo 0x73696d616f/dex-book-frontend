@@ -1,5 +1,6 @@
 'use client';
-import Image from 'next/image'
+
+import './OrderTable.css';
 import React, { useState } from 'react';
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
@@ -9,9 +10,33 @@ export default function Home() {
   const [isMarketClicked, setMarketClicked] = useState(false);
   const [isLimitClicked, setLimitClicked] = useState(true);
 
-  const buyButton = {width: "100%", margin: "0.5em", backgroundColor: "#12400b", fontFamily: 'Montserrat, sans-serif'}
-  const sellButton = {width: "100%", margin: "0.5em", backgroundColor: "#691111", fontFamily: 'Montserrat, sans-serif'}
+  const buyColor = "green"
+  const sellColor = "red"
+
+  const buyButton = {width: "100%", margin: "0.5em", color: buyColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif'}
+  const sellButton = {width: "100%", margin: "0.5em", color: sellColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif'}
   const switchButton = {marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif'}
+
+  const orders = [
+    { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 3, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+  ];
+
+  const pairs = [
+    { id: 1, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
+    { id: 2, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
+    { id: 3, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
+  ];
 
   const handleMarketClick = () => {
     setMarketClicked(true);
@@ -31,9 +56,51 @@ export default function Home() {
       </nav>
       <div className={styles.container}>
         <div className={styles.column}>
-          <div className={styles.fortyFivePercentLine}>Line 1 (45%)</div>
-          <div className={styles.tenPercentLine}>Line 2 (10%)</div>
-          <div className={styles.fortyFivePercentLine}>Line 3 (45%)</div>
+          <div className={styles.fortyFivePercentLine}>
+          <table className="order-table">
+            <thead>
+              <tr>
+                <th>Price (USDC)</th>
+                <th>Amount (WETH)</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id}>
+                  <td style={{color:sellColor}}>{order.price}</td>
+                  <td>{order.amount}</td>
+                  <td>{order.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+          <div className={styles.tenPercentLine}>
+            <div style={{color: buyColor}}>
+              1750.20
+            </div>
+          </div>
+          <div className={styles.fortyFivePercentLine}>
+            <table className="order-table">
+              <thead>
+                <tr>
+                  <th>Price (USDC)</th>
+                  <th>Amount (WETH)</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td style={{color:buyColor}}>{order.price}</td>
+                    <td>{order.amount}</td>
+                    <td>{order.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         <div className={styles.column}>
           <div className={styles.sixtyPercentLine}>Line 2 (60%)</div>
@@ -67,7 +134,26 @@ export default function Home() {
           </div>
         </div>
         <div className={styles.column}>
-          <div className={styles.halfLine}>Line 3 (1st half)</div>
+          <div className={styles.halfLine}>
+          <table className="order-table">
+              <thead>
+                <tr>
+                  <th>Pair (USDC)</th>
+                  <th>Price (WETH)</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairs.map((pair) => (
+                  <tr key={pair.id}>
+                    <td>{pair.pair}</td>
+                    <td>{pair.price}</td>
+                    <td>{pair.change}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div className={styles.halfLine}>Line 3 (2nd half)</div>
         </div>
       </div>
