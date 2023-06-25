@@ -1,6 +1,7 @@
 'use client';
 
 import './OrderTable.css';
+import './MyOrderTable.css';
 import React, { useState } from 'react';
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
@@ -9,6 +10,8 @@ import { Input } from "@nextui-org/react";
 export default function Home() {
   const [isMarketClicked, setMarketClicked] = useState(false);
   const [isLimitClicked, setLimitClicked] = useState(true);
+  const [isBuyOrdersClicked, setBuyOrdersClicked] = useState(false);
+  const [isSellOrdersClicked, setSellOrdersClicked] = useState(true);
 
   const buyColor = "green"
   const sellColor = "red"
@@ -30,6 +33,33 @@ export default function Home() {
     { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
     { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
     { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    
+  ];
+  const buyOrders = [
+    { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 3, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+  ];
+
+  const sellOrders = [
+    { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 3, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
+    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
   ];
 
   const pairs = [
@@ -46,6 +76,16 @@ export default function Home() {
   const handleLimitClick = () => {
     setMarketClicked(false);
     setLimitClicked(true);
+  };
+
+  const handleBuyOrdersClick = () => {
+    setBuyOrdersClicked(true);
+    setSellOrdersClicked(false);
+  };
+
+  const handleSellOrdersClick = () => {
+    setBuyOrdersClicked(false);
+    setSellOrdersClicked(true);
   };
 
   return (
@@ -154,7 +194,30 @@ export default function Home() {
               </tbody>
             </table>
           </div>
-          <div className={styles.halfLine}>Line 3 (2nd half)</div>
+          <div className={styles.halfLine}>
+            <div className={styles.myOrdersSwitchContainer}>
+              <Button size="xs" style={isSellOrdersClicked ? { ...switchButton, backgroundColor: 'red' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleSellOrdersClick}>Sell Orders</Button>          
+              <Button size="xs" style={isBuyOrdersClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleBuyOrdersClick}>Buy Orders</Button>    
+            </div>
+            <table className="my-order-table">
+              <thead>
+                <tr>
+                  <th>Price (USDC)</th>
+                  <th>Amount (WETH)</th>
+                  <th>Amount (USDC)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(isSellOrdersClicked ? sellOrders : buyOrders).map((order) => (
+                  <tr key={order.id}>
+                    <td style={{color:isBuyOrdersClicked ? buyColor : sellColor}}>{order.price}</td>
+                    <td>{order.amount}</td>
+                    <td>{order.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

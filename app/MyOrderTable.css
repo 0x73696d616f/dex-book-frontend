@@ -1,0 +1,50 @@
+.my-order-table {
+    width: 100%;
+    border-collapse: collapse;
+    height: 100%;
+  }
+
+  .my-order-table thead {
+    padding: 0.1em;
+    color: grey;
+    text-align: left;
+    height: 10%;
+    background-color: #282828;
+    font-size: 0.8em;
+  }
+
+  .my-order-table thead tr {
+    display: table;
+    width: 100%;
+  }
+  
+  .my-order-table th {
+    padding: 0.1em;
+    color: grey;
+    text-align: left;
+    background-color: #282828;
+  }
+
+  .my-order-table td {
+    color: rgb(161, 161, 161);
+    padding: 0.1em;
+    text-align: left;
+    font-weight: bold;
+  }
+
+  .my-order-table tbody {
+    overflow: auto;
+    display: block;
+    height: 85%;
+    width: 100%
+  }
+
+  .my-order-table tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+  
+  .my-order-table tbody tr:hover {
+    background-color: rgb(60, 60, 60);
+  }

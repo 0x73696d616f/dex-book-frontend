@@ -1,29 +1,51 @@
 .order-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  
-  .order-table th {
-    padding: 0.1em;
-    color: grey;
-    text-align: left;
-  }
+  width: 100%;
+  border-collapse: collapse;
+  height: 100%;
+}
 
-  .order-table td {
-    color: rgb(161, 161, 161);
-    padding: 0.1em;
-    text-align: left;
-    font-weight: bold;
-  }
-  
-  .order-table th {
-    background-color: #282828;
-  }
-  
-  .order-table tbody tr:hover {
-    background-color: rgb(60, 60, 60);
-  }
-  
-  .order-table tbody td {
-    margin: -10px 0;
-  }
+.order-table thead {
+  padding: 0.1em;
+  color: grey;
+  text-align: left;
+  background-color: #282828;
+  font-size: 0.8em;
+  table-layout: fixed;
+}
+
+.order-table thead tr {
+  display: table;
+  width: 100%;
+}
+
+.order-table th {
+  width: calc(100% / 3); /* Adjust the value based on the number of columns */
+  padding: 0.1em;
+  color: grey;
+  text-align: left;
+  background-color: #282828;
+}
+
+.order-table td {
+  color: rgb(161, 161, 161);
+  padding: 0.1em;
+  text-align: left;
+  font-weight: bold;
+}
+
+.order-table tbody {
+  overflow-y: auto;
+  display: block;
+  height: 97%;
+  width: 100%;
+}
+
+.order-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.order-table tbody tr:hover {
+  background-color: rgb(60, 60, 60);
+}
