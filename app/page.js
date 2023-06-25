@@ -146,10 +146,10 @@ export default function Home() {
           <div className={styles.sixtyPercentLine}>Line 2 (60%)</div>
           <div className={styles.fortyPercentLine}>
             <div className={styles.buySellMenu}>
-            <div className={styles.switchContainer}>
-              <Button size="xs" style={isLimitClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleLimitClick}>Limit</Button>    
-              <Button size="xs" style={isMarketClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleMarketClick}>Market</Button>          
-            </div>
+              <div className={styles.switchContainer}>
+                <Button size="xs" style={isLimitClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleLimitClick}>Limit</Button>    
+                <Button size="xs" style={isMarketClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleMarketClick}>Market</Button>          
+              </div>
               <div className={styles.buttonContainer}>
                 <div className={styles.menuItem}>
                   <Input color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
