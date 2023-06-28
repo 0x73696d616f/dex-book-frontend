@@ -6,50 +6,37 @@ import React, { useState, useEffect, useRef } from 'react';
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
 import { Input } from "@nextui-org/react";
-import Chart from 'chart.js/auto';
+import { ethers } from 'ethers';
+import Web3 from 'web3';
 
 export default function Home() {
+  const dexBookAbi = require("../contracts/DexBook.json").abi;
+  const dexBookAddress = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0";
+  const tokenAabi = require("../contracts/USDC.json").abi;
+  const tokenBabi = require("../contracts/WETH.json").abi;
+  const rpcUrl = "http://127.0.0.1:8545"
+
   const [isMarketClicked, setMarketClicked] = useState(false);
   const [isLimitClicked, setLimitClicked] = useState(true);
   const [isBuyOrdersClicked, setBuyOrdersClicked] = useState(false);
   const [isSellOrdersClicked, setSellOrdersClicked] = useState(true);
 
-  const chartRef = useRef(null);
+  const [dexBookRead, setDexBookRead] = useState(null);
+  const [sellOrders, setSellOrders] = useState([]);
+  const [buyOrders, setBuyOrders] = useState([]);
+  const [userSellOrders, setUserSellOrders] = useState({});
+  const [userBuyOrders, setUserBuyOrders] = useState({});
+  const [tokenA, setTokenA] = useState(0);
+  const [tokenB, setTokenB] = useState(0);
+  const [tokenASymbol, setTokenASymbol] = useState("");
+  const [tokenBSymbol, setTokenBSymbol] = useState("");
+  const [tokenADecimalsFactor, setTokenADecimalsFactor] = useState(0);
+  const [tokenBDecimalsFactor, setTokenBDecimalsFactor] = useState(0);
+  const [pricePrecision, setPricePrecision] = useState(BigInt(1e18));
+  const [account, setAccount] = useState("");
 
-  useEffect(() => {
-    if (chartRef && chartRef.current) {
-      const ctx = chartRef.current.getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.map(item => item.time), // Array of time values for the x-axis
-          datasets: [
-            {
-              label: 'Price',
-              data: data.map(item => item.price), // Array of price values for the y-axis
-              backgroundColor: 'rgba(75, 192, 192, 0.2)',
-              borderColor: 'rgba(75, 192, 192, 1)',
-              borderWidth: 1
-            }
-          ]
-        },
-        options: {
-          scales: {
-            x: {
-              type: 'time', // Use time scale for x-axis
-              time: {
-                unit: 'day' // Display time in days (you can customize this based on your data)
-              }
-            },
-            y: {
-              beginAtZero: true // Start y-axis from zero
-            }
-          }
-        }
-      });
-    }
-  }, [data]);
-
+  const [buyPrice, setBuyPrice] = useState("");
+  const [buyAmount, setBuyAmount] = useState("");
 
   const buyColor = "green"
   const sellColor = "red"
@@ -57,48 +44,6 @@ export default function Home() {
   const buyButton = {width: "100%", margin: "0.5em", color: buyColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif', maxHeight: "100%"}
   const sellButton = {width: "100%", margin: "0.5em", color: sellColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif', maxHeight: "100%"}
   const switchButton = {marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif'}
-
-  const orders = [
-    { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 3, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-  ];
-
-  const buyOrders = [
-    { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 3, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-  ];
-
-  const sellOrders = [
-    { id: 1, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 2, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 3, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-    { id: 4, price: 1750.20, amount: 2.4532, total: 3500.30232 },
-  ];
 
   const pairs = [
     { id: 1, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
@@ -126,11 +71,127 @@ export default function Home() {
     setSellOrdersClicked(true);
   };
 
+  async function placeBuyLimitOrder() {
+    const buyAmountWithDecimalsFactor = buyAmount * tokenADecimalsFactor;
+    const buyPriceWithPrecision = pricePrecision / buyPrice;
+    const tokenBamountWithDecimalsFactor = await dexBookRead.tokenAToTokenB(buyAmountWithDecimalsFactor, buyPriceWithPrecision);
+
+    const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+
+    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+    try {
+    await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenBamountWithDecimalsFactor));
+    } catch (error) {}
+
+    const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+    try {
+    await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
+    } catch (error) {}
+  }
+
+  async function placeBuyMarketOrder() {
+    const buyAmountWithDecimalsFactor = buyAmount * tokenBDecimalsFactor;
+
+    const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+
+    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+    await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor));
+
+    const dexBookWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+    await dexBookWrite.placeBuyMarketOrder(buyAmountWithDecimalsFactor);
+  }
+
+
+  async function connectToMetaMask() {
+    if (window.ethereum) {
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const web3 = new Web3(window.ethereum);
+        const accounts = await web3.eth.getAccounts();
+        if (accounts.length > 0) {
+          setAccount(accounts[0]);
+        } else {
+          console.error('No accounts found in MetaMask');
+        }
+      } catch (error) {
+        console.error('Error connecting to MetaMask:', error);
+      }
+    } else {
+      console.error('MetaMask extension not detected');
+    }
+  }
+
+  useEffect(() => {
+    if (buyOrders.length == 0) {
+      const bootstrapDexBook = async () => {
+        const dexBookContractRead = new ethers.Contract(dexBookAddress, dexBookAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
+        setDexBookRead(dexBookContractRead);
+        const pricePrecisionRead = BigInt(await dexBookContractRead.pricePrecision());
+        setPricePrecision(pricePrecisionRead);
+        const tokenARead = new ethers.Contract(await dexBookContractRead.tokenA(), tokenAabi, new ethers.providers.JsonRpcProvider(rpcUrl));
+        setTokenA(tokenARead);
+        const tokenBRead = new ethers.Contract(await dexBookContractRead.tokenB(), tokenBabi, new ethers.providers.JsonRpcProvider(rpcUrl));
+        setTokenB(tokenBRead);
+        const tokenADecimalsFactorRead = BigInt(10) ** BigInt(await tokenARead.decimals());
+        setTokenADecimalsFactor(tokenADecimalsFactorRead);
+        const tokenBDecimalsFactorRead = BigInt(10) ** BigInt(await tokenBRead.decimals());
+        setTokenBDecimalsFactor(tokenBDecimalsFactorRead);
+        setTokenASymbol(await tokenARead.symbol());
+        setTokenBSymbol(await tokenBRead.symbol());
+
+        const sellOrdersRead = await dexBookContractRead.sellOrdersAndPrices();
+        let sellOrdersComputed = [];
+        let userSellOrdersComputed = {};
+        for (const priceBracket of sellOrdersRead) {
+          let accumulatedAmount = BigInt(0);
+          let accumulatedCost = BigInt(0);
+          const price = BigInt(priceBracket.price) / pricePrecisionRead;
+          for (const order of priceBracket.orders) {
+            const tokenBAmount = BigInt(order.amount) / tokenBDecimalsFactorRead;
+            accumulatedCost += tokenBAmount;
+            const amount = tokenBAmount / price;
+            accumulatedAmount += amount;
+            userSellOrdersComputed[order.maker]
+              ? userSellOrdersComputed[order.maker].push({id: order.id, price: price, amount: amount})
+              : userSellOrdersComputed[order.maker] = [{id: order.id, price: price, amount: amount}];
+          }
+          sellOrdersComputed.push({price: price, amount: accumulatedAmount, total: accumulatedCost});
+        }
+        setSellOrders(sellOrdersComputed);
+        setUserSellOrders(userSellOrdersComputed);
+    
+        const buyOrdersRead = await dexBookContractRead.buyOrdersAndPrices();
+        let buyOrdersComputed = [];
+        let userBuyOrdersComputed = {};
+        for (const priceBracket of buyOrdersRead) {
+          let accumulatedAmount = BigInt(0);
+          let accumulatedCost = BigInt(0);
+          const price = pricePrecisionRead / BigInt(priceBracket.price);
+          for (const order of priceBracket.orders) {
+            const amount = BigInt(order.amount) / tokenADecimalsFactorRead;
+            accumulatedAmount += amount;
+            accumulatedCost += amount * price;
+
+            userBuyOrdersComputed[order.maker]  
+              ? userBuyOrdersComputed[order.maker].push({id: order.id, price: price, amount: amount})
+              : userBuyOrdersComputed[order.maker] = [{id: order.id, price: price, amount: amount}];
+          }
+          buyOrdersComputed.push({price: price, amount: accumulatedAmount, total: accumulatedCost});
+        }
+        setBuyOrders(buyOrdersComputed);
+        setUserBuyOrders(userBuyOrdersComputed);
+      }
+      bootstrapDexBook();
+    }
+  }, [buyOrders]);
+
   return (
     <div className={styles.myApp}>
       <nav className={styles.navbar}>
         <h1>DexBook</h1>
-        <Button hover style={{position: "absolute", right: "0.5em", top: "0.5em", backgroundColor: "#282828"}}>Connect Wallet</Button>
+        {account 
+          ? (<Button animated="false" style={{position: "absolute", right: "0.5em", top: "0.5em", backgroundColor: "#282828"}}>{account.slice(0, 6)}...{account.slice(-4)}</Button>)
+          : (<Button style={{position: "absolute", right: "0.5em", top: "0.5em", backgroundColor: "#282828"}} onClick={connectToMetaMask}>Connect Wallet</Button>)}
       </nav>
       <div className={styles.container}>
         <div className={styles.column}>
@@ -138,14 +199,14 @@ export default function Home() {
           <table className="order-table">
             <thead>
               <tr>
-                <th>Price (USDC)</th>
-                <th>Amount (WETH)</th>
+                <th>Price ({tokenBSymbol})</th>
+                <th>Amount ({tokenASymbol})</th>
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr key={order.id}>
+              {sellOrders && sellOrders.length > 0 && sellOrders.map((order) => (
+                <tr key={order.price}>
                   <td style={{color:sellColor}}>{order.price}</td>
                   <td>{order.amount}</td>
                   <td>{order.total}</td>
@@ -163,17 +224,17 @@ export default function Home() {
             <table className="order-table">
               <thead>
                 <tr>
-                  <th>Price (USDC)</th>
-                  <th>Amount (WETH)</th>
+                  <th>Price ({tokenBSymbol})</th>
+                  <th>Amount ({tokenASymbol})</th>
                   <th>Total</th>
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id}>
-                    <td style={{color:buyColor}}>{order.price}</td>
-                    <td>{order.amount}</td>
-                    <td>{order.total}</td>
+                {buyOrders.map((order) => (
+                  <tr key={order.price.toString()}>
+                    <td style={{color:sellColor}}>{order.price.toString()}</td>
+                    <td>{order.amount.toString()}</td>
+                    <td>{order.total.toString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -189,23 +250,23 @@ export default function Home() {
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <Input auto color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
+                <Input color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
               </div>
               <div className={styles.menuItem}>
-                <Input auto color="white" width="100%" disabled={isMarketClicked} labelRight={"USDC"} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
+                <Input onChange={(e) => setBuyPrice(BigInt(e.target.value))} color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
               </div>
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <Input auto color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? "USDC" : "WETH"} css={{ $$inputColor: "#525257" }}/>
+                <Input color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? tokenBSymbol : tokenASymbol} css={{ $$inputColor: "#525257" }}/>
               </div>
               <div className={styles.menuItem}>
-                <Input auto color="white" width="100%" placeholder="amount" labelRight={"WETH"} css={{ $$inputColor: "#525257" }}/>
+                <Input onChange={(e) => setBuyAmount(BigInt(e.target.value))} color="white" width="100%" placeholder="amount" labelRight={tokenASymbol} css={{ $$inputColor: "#525257" }}/>
               </div>
             </div>
             <div className={styles.buttonContainer}>
-              <Button auto style={sellButton}>Sell</Button>
-              <Button auto style={buyButton}>Buy</Button>
+              <Button style={sellButton}>Sell</Button>
+              <Button onClick={isLimitClicked? placeBuyLimitOrder : placeBuyMarketOrder} style={buyButton}>Buy</Button>
             </div>
           </div>
         </div>
@@ -214,13 +275,13 @@ export default function Home() {
           <table className="order-table">
               <thead>
                 <tr>
-                  <th>Pair (USDC)</th>
-                  <th>Price (WETH)</th>
+                  <th>Pair ({tokenBSymbol})</th>
+                  <th>Price ({tokenASymbol})</th>
                   <th>Change</th>
                 </tr>
               </thead>
               <tbody>
-                {pairs.map((pair) => (
+                {pairs && pairs.length && pairs.map((pair) => (
                   <tr key={pair.id}>
                     <td>{pair.pair}</td>
                     <td>{pair.price}</td>
@@ -238,17 +299,16 @@ export default function Home() {
             <table className="my-order-table">
               <thead>
                 <tr>
-                  <th>Price (USDC)</th>
-                  <th>Amount (WETH)</th>
-                  <th>Amount (USDC)</th>
+                  <th>Price ({tokenBSymbol})</th>
+                  <th>Amount ({tokenASymbol})</th>
+                  <th>Amount ({tokenBSymbol})</th>
                 </tr>
               </thead>
               <tbody>
-                {(isSellOrdersClicked ? sellOrders : buyOrders).map((order) => (
+                {account && (isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 || isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0) && (isSellOrdersClicked ? userSellOrders[account] : userBuyOrders[account]).map((order) => (
                   <tr key={order.id}>
-                    <td style={{color:isBuyOrdersClicked ? buyColor : sellColor}}>{order.price}</td>
+                    <td style={{color:isSellOrdersClicked ? sellColor : buyColor}}>{order.price}</td>
                     <td>{order.amount}</td>
-                    <td>{order.total}</td>
                   </tr>
                 ))}
               </tbody>
