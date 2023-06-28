@@ -11,10 +11,10 @@ import Web3 from 'web3';
 
 export default function Home() {
   const dexBookAbi = require("../contracts/DexBook.json").abi;
-  const dexBookAddress = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0";
+  const dexBookAddress = "0x615cfd913dCB3260390C25046c9AC1d8aD857326";
   const tokenAabi = require("../contracts/USDC.json").abi;
   const tokenBabi = require("../contracts/WETH.json").abi;
-  const rpcUrl = "http://127.0.0.1:8545"
+  const rpcUrl = "https://erpc.apothem.network"
 
   const [isMarketClicked, setMarketClicked] = useState(false);
   const [isLimitClicked, setLimitClicked] = useState(true);
@@ -32,11 +32,13 @@ export default function Home() {
   const [tokenBSymbol, setTokenBSymbol] = useState("");
   const [tokenADecimalsFactor, setTokenADecimalsFactor] = useState(0);
   const [tokenBDecimalsFactor, setTokenBDecimalsFactor] = useState(0);
-  const [pricePrecision, setPricePrecision] = useState(BigInt(1e18));
+  const [pricePrecision, setPricePrecision] = useState(1e18);
   const [account, setAccount] = useState("");
 
-  const [buyPrice, setBuyPrice] = useState("");
-  const [buyAmount, setBuyAmount] = useState("");
+  const [buyPrice, setBuyPrice] = useState(0);
+  const [buyAmount, setBuyAmount] = useState(0);
+  const [sellPrice, setSellPrice] = useState(0);
+  const [sellAmount, setSellAmount] = useState(0);
 
   const buyColor = "green"
   const sellColor = "red"
@@ -71,22 +73,42 @@ export default function Home() {
     setSellOrdersClicked(true);
   };
 
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function to4decimals(number) {
+    return number.toFixed(4);
+  }
+
   async function placeBuyLimitOrder() {
-    const buyAmountWithDecimalsFactor = buyAmount * tokenADecimalsFactor;
-    const buyPriceWithPrecision = pricePrecision / buyPrice;
+    const buyAmountWithDecimalsFactor = BigInt(buyAmount * tokenADecimalsFactor);
+    const buyPriceWithPrecision = BigInt(pricePrecision / buyPrice);
     const tokenBamountWithDecimalsFactor = await dexBookRead.tokenAToTokenB(buyAmountWithDecimalsFactor, buyPriceWithPrecision);
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
     const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-    try {
-    await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenBamountWithDecimalsFactor));
-    } catch (error) {}
+    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenBamountWithDecimalsFactor));
+    await sleep(2000);
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    try {
-    await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
-    } catch (error) {}
+    tx = await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
+    await sleep(2000);
+  }
+
+  async function placeSellLimitOrder() {
+    const buyAmountWithDecimalsFactor = BigInt(buyAmount * tokenADecimalsFactor);
+    const buyPriceWithPrecision = BigInt(pricePrecision / buyPrice);
+    const tokenBamountWithDecimalsFactor = await dexBookRead.tokenAToTokenB(buyAmountWithDecimalsFactor, buyPriceWithPrecision);
+
+    const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+
+    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenBamountWithDecimalsFactor));
+    await sleep(2000);
+
+    const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+    tx = await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
+    await sleep(2000);
   }
 
   async function placeBuyMarketOrder() {
@@ -95,10 +117,12 @@ export default function Home() {
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
     const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-    await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor));
+    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor));
+    await sleep(2000);
 
     const dexBookWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    await dexBookWrite.placeBuyMarketOrder(buyAmountWithDecimalsFactor);
+    tx = await dexBookWrite.placeBuyMarketOrder(buyAmountWithDecimalsFactor);
+    await sleep(2000);
   }
 
 
@@ -122,19 +146,19 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (buyOrders.length == 0) {
+
       const bootstrapDexBook = async () => {
         const dexBookContractRead = new ethers.Contract(dexBookAddress, dexBookAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
         setDexBookRead(dexBookContractRead);
-        const pricePrecisionRead = BigInt(await dexBookContractRead.pricePrecision());
+        const pricePrecisionRead = await dexBookContractRead.pricePrecision();
         setPricePrecision(pricePrecisionRead);
         const tokenARead = new ethers.Contract(await dexBookContractRead.tokenA(), tokenAabi, new ethers.providers.JsonRpcProvider(rpcUrl));
         setTokenA(tokenARead);
         const tokenBRead = new ethers.Contract(await dexBookContractRead.tokenB(), tokenBabi, new ethers.providers.JsonRpcProvider(rpcUrl));
         setTokenB(tokenBRead);
-        const tokenADecimalsFactorRead = BigInt(10) ** BigInt(await tokenARead.decimals());
+        const tokenADecimalsFactorRead = 10 ** await tokenARead.decimals();
         setTokenADecimalsFactor(tokenADecimalsFactorRead);
-        const tokenBDecimalsFactorRead = BigInt(10) ** BigInt(await tokenBRead.decimals());
+        const tokenBDecimalsFactorRead = 10 ** await tokenBRead.decimals();
         setTokenBDecimalsFactor(tokenBDecimalsFactorRead);
         setTokenASymbol(await tokenARead.symbol());
         setTokenBSymbol(await tokenBRead.symbol());
@@ -143,17 +167,17 @@ export default function Home() {
         let sellOrdersComputed = [];
         let userSellOrdersComputed = {};
         for (const priceBracket of sellOrdersRead) {
-          let accumulatedAmount = BigInt(0);
-          let accumulatedCost = BigInt(0);
-          const price = BigInt(priceBracket.price) / pricePrecisionRead;
+          let accumulatedAmount = 0;
+          let accumulatedCost = 0;
+          const price = priceBracket.price / pricePrecisionRead;
           for (const order of priceBracket.orders) {
-            const tokenBAmount = BigInt(order.amount) / tokenBDecimalsFactorRead;
+            const tokenBAmount = order.amount / tokenBDecimalsFactorRead;
             accumulatedCost += tokenBAmount;
             const amount = tokenBAmount / price;
             accumulatedAmount += amount;
             userSellOrdersComputed[order.maker]
-              ? userSellOrdersComputed[order.maker].push({id: order.id, price: price, amount: amount})
-              : userSellOrdersComputed[order.maker] = [{id: order.id, price: price, amount: amount}];
+              ? userSellOrdersComputed[order.maker].push({id: order.id, price: price, amount: amount, total: tokenBAmount})
+              : userSellOrdersComputed[order.maker] = [{id: order.id, price: price, amount: amount, total: tokenBAmount}];
           }
           sellOrdersComputed.push({price: price, amount: accumulatedAmount, total: accumulatedCost});
         }
@@ -164,26 +188,26 @@ export default function Home() {
         let buyOrdersComputed = [];
         let userBuyOrdersComputed = {};
         for (const priceBracket of buyOrdersRead) {
-          let accumulatedAmount = BigInt(0);
-          let accumulatedCost = BigInt(0);
-          const price = pricePrecisionRead / BigInt(priceBracket.price);
+          let accumulatedAmount = 0;
+          let accumulatedCost = 0;
+          const price = pricePrecisionRead / priceBracket.price;
           for (const order of priceBracket.orders) {
-            const amount = BigInt(order.amount) / tokenADecimalsFactorRead;
+            const amount = order.amount / tokenADecimalsFactorRead;
+            const cost = amount * price;
             accumulatedAmount += amount;
-            accumulatedCost += amount * price;
+            accumulatedCost += cost;
 
             userBuyOrdersComputed[order.maker]  
-              ? userBuyOrdersComputed[order.maker].push({id: order.id, price: price, amount: amount})
-              : userBuyOrdersComputed[order.maker] = [{id: order.id, price: price, amount: amount}];
+              ? userBuyOrdersComputed[order.maker].push({id: order.id, price: price, amount: amount, total: cost})
+              : userBuyOrdersComputed[order.maker] = [{id: order.id, price: price, amount: amount, total: cost}];
           }
           buyOrdersComputed.push({price: price, amount: accumulatedAmount, total: accumulatedCost});
         }
         setBuyOrders(buyOrdersComputed);
         setUserBuyOrders(userBuyOrdersComputed);
       }
-      bootstrapDexBook();
-    }
-  }, [buyOrders]);
+      if (buyOrders.length == 0 && sellOrders.length == 0) bootstrapDexBook();
+  }, [buyOrders, account]);
 
   return (
     <div className={styles.myApp}>
@@ -207,9 +231,9 @@ export default function Home() {
             <tbody>
               {sellOrders && sellOrders.length > 0 && sellOrders.map((order) => (
                 <tr key={order.price}>
-                  <td style={{color:sellColor}}>{order.price}</td>
-                  <td>{order.amount}</td>
-                  <td>{order.total}</td>
+                  <td style={{color:sellColor}}>{to4decimals(order.price)}</td>
+                  <td>{to4decimals(order.amount)}</td>
+                  <td>{to4decimals(order.total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -231,10 +255,10 @@ export default function Home() {
               </thead>
               <tbody>
                 {buyOrders.map((order) => (
-                  <tr key={order.price.toString()}>
-                    <td style={{color:sellColor}}>{order.price.toString()}</td>
-                    <td>{order.amount.toString()}</td>
-                    <td>{order.total.toString()}</td>
+                  <tr key={order.price}>
+                    <td style={{color:buyColor}}>{to4decimals(order.price)}</td>
+                    <td>{to4decimals(order.amount)}</td>
+                    <td>{to4decimals(order.total)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -250,18 +274,18 @@ export default function Home() {
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <Input color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
+                <Input onChange={(e) => setSellPrice(e.target.value)} color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
               </div>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setBuyPrice(BigInt(e.target.value))} color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
+                <Input onChange={(e) => setBuyPrice(e.target.value)} color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} placeholder="price" css={isLimitClicked ? { $$inputColor: "#525257"} : { $$inputColor: "grey"}}/>
               </div>
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <Input color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? tokenBSymbol : tokenASymbol} css={{ $$inputColor: "#525257" }}/>
+                <Input onChange={(e) => setSellAmount(e.target.value)} color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? tokenASymbol : tokenBSymbol} css={{ $$inputColor: "#525257" }}/>
               </div>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setBuyAmount(BigInt(e.target.value))} color="white" width="100%" placeholder="amount" labelRight={tokenASymbol} css={{ $$inputColor: "#525257" }}/>
+                <Input onChange={(e) => setBuyAmount(e.target.value)} color="white" width="100%" placeholder="amount" labelRight={tokenASymbol} css={{ $$inputColor: "#525257" }}/>
               </div>
             </div>
             <div className={styles.buttonContainer}>
@@ -305,10 +329,18 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {account && (isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 || isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0) && (isSellOrdersClicked ? userSellOrders[account] : userBuyOrders[account]).map((order) => (
-                  <tr key={order.id}>
-                    <td style={{color:isSellOrdersClicked ? sellColor : buyColor}}>{order.price}</td>
-                    <td>{order.amount}</td>
+                {account && isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 && userSellOrders[account].map((order) => (
+                  <tr key={order.price.toString() + order.id.toString()}>
+                    <td style={{color: sellColor}}>{to4decimals(order.price)}</td>
+                    <td>{to4decimals(order.amount)}</td>
+                    <td>{to4decimals(order.total)}</td>
+                  </tr>
+                ))}
+                {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
+                  <tr key={order.price.toString() + order.id.toString()}>
+                    <td style={{color: buyColor}}>{to4decimals(order.price)}</td>
+                    <td>{to4decimals(order.amount)}</td>
+                    <td>{to4decimals(order.total)}</td>
                   </tr>
                 ))}
               </tbody>
