@@ -96,22 +96,36 @@ export default function Home() {
   }
 
   async function placeSellLimitOrder() {
-    const buyAmountWithDecimalsFactor = BigInt(buyAmount * tokenADecimalsFactor);
-    const buyPriceWithPrecision = BigInt(pricePrecision / buyPrice);
-    const tokenBamountWithDecimalsFactor = await dexBookRead.tokenAToTokenB(buyAmountWithDecimalsFactor, buyPriceWithPrecision);
+    const sellAmountWithDecimalsFactor = BigInt(sellAmount * sellPrice * tokenBDecimalsFactor);
+    const sellPriceWithPrecision = BigInt(sellPrice * pricePrecision);
+    const tokenAamountWithDecimalsFactor = await dexBookRead.tokenBToTokenA(sellAmountWithDecimalsFactor, sellPriceWithPrecision);
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
-    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenBamountWithDecimalsFactor));
-    await sleep(2000);
+    const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
+    let tx = await tokenAContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenAamountWithDecimalsFactor));
+    await sleep(5000);
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    tx = await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
+    tx = await dexBookContractWrite.placeSellLimitOrder(sellAmountWithDecimalsFactor, sellPriceWithPrecision, [0], [0]);
     await sleep(2000);
   }
 
   async function placeBuyMarketOrder() {
+    const buyAmountWithDecimalsFactor = buyAmount * tokenBDecimalsFactor;
+
+    const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+
+    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor));
+    await sleep(5000);
+
+    const dexBookWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+    tx = await dexBookWrite.placeBuyMarketOrder(buyAmountWithDecimalsFactor);
+    await sleep(2000);
+  }
+
+  async function placeSellMarketOrder() {
     const buyAmountWithDecimalsFactor = buyAmount * tokenBDecimalsFactor;
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
@@ -285,11 +299,11 @@ export default function Home() {
                 <Input onChange={(e) => setSellAmount(e.target.value)} color="white" width="100%" placeholder="amount" labelRight={isLimitClicked? tokenASymbol : tokenBSymbol} css={{ $$inputColor: "#525257" }}/>
               </div>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setBuyAmount(e.target.value)} color="white" width="100%" placeholder="amount" labelRight={tokenASymbol} css={{ $$inputColor: "#525257" }}/>
+                <Input onChange={(e) => setBuyAmount(e.target.value)} color="white" width="100%" placeholder="amount" labelRight={tokenBSymbol} css={{ $$inputColor: "#525257" }}/>
               </div>
             </div>
             <div className={styles.buttonContainer}>
-              <Button style={sellButton}>Sell</Button>
+              <Button onClick={isLimitClicked? placeSellLimitOrder : placeSellMarketOrder} style={sellButton}>Sell</Button>
               <Button onClick={isLimitClicked? placeBuyLimitOrder : placeBuyMarketOrder} style={buyButton}>Buy</Button>
             </div>
           </div>
