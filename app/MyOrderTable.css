@@ -2,6 +2,7 @@
     width: 100%;
     border-collapse: collapse;
     height: 100%;
+    position: relative;
   }
 
   .my-order-table thead {
@@ -48,3 +49,16 @@
   .my-order-table tbody tr:hover {
     background-color: rgb(60, 60, 60);
   }
+
+
+.popup {
+  margin-top: 5%;
+  border-radius: 1em;
+  padding: 10px;
+  z-index: 1;
+}
+
+.popup-button-container {
+  display: flex;
+  justify-content: center; /* or space-between, space-around, etc. */
+}
