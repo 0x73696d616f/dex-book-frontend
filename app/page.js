@@ -3,6 +3,9 @@
 import './OrderTable.css';
 import './MyOrderTable.css';
 import React, { useState, useEffect, useRef } from 'react';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPenToSquare } from "@fortawesome/free-solid-svg-icons";
+
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
 import { Input } from "@nextui-org/react";
@@ -42,9 +45,12 @@ export default function Home() {
 
   const [price, setPrice] = useState(0);
   const [priceColor, setPriceColor] = useState("grey");
+  const [marketOrders, setMarketOrders] = useState([]);
 
   const [selectedRow, setSelectedRow] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
+  const [popupPrice, setPopupPrice] = useState(0);
+  const [popupAmount, setPopupAmount] = useState(0);
 
   const buyColor = "green"
   const sellColor = "red"
@@ -86,18 +92,61 @@ export default function Home() {
   const handleRowClick = (order) => {
     setSelectedRow(order);
     setShowPopup(true);
+    setPopupPrice(order.price);
+    setPopupAmount(order.amount);
   };
 
-  const handleSave = () => {
-    // Save the changes to the selected row
-    // You can update the appropriate data structure or make an API call here
-    // After saving, reset the selected row and hide the popup
+  const handleSave = async () => {
+    if (isBuyOrdersClicked) {
+      const oldOrder = selectedRow;
+      const oldBuyAmountWithDecimalsFactor = BigInt(Math.round(oldOrder.amount * tokenADecimalsFactor));
+      const oldBuyPriceWithPrecision = BigInt(Math.round(pricePrecision / oldOrder.price));
+      const oldTokenBamountWithDecimalsFactor = BigInt(await dexBookRead.tokenAToTokenB(oldBuyAmountWithDecimalsFactor, oldBuyPriceWithPrecision));
+
+      const newOrder = {price: popupPrice, amount: popupAmount };
+      const newBuyAmountWithDecimalsFactor = BigInt(Math.round(newOrder.amount * tokenADecimalsFactor));
+      const newBuyPriceWithPrecision = BigInt(Math.round(pricePrecision / newOrder.price));
+      const newTokenBamountWithDecimalsFactor = BigInt(await dexBookRead.tokenAToTokenB(newBuyAmountWithDecimalsFactor, newBuyPriceWithPrecision));
+
+      const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+
+      if (newTokenBamountWithDecimalsFactor > oldTokenBamountWithDecimalsFactor) {
+        const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+        const tx = await tokenBContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(newTokenBamountWithDecimalsFactor - oldTokenBamountWithDecimalsFactor)));
+        await sleep(5000);
+      }
+
+      const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+      const tx = await dexBookContractWrite.modifyBuyLimitOrder(oldOrder.id, oldBuyPriceWithPrecision, newBuyPriceWithPrecision, newBuyAmountWithDecimalsFactor, [0], [0]);
+      await sleep(2000);
+    } else if (isSellOrdersClicked){
+      const oldOrder = selectedRow;
+      const oldSellAmountWithDecimalsFactor = BigInt(Math.round(oldOrder.amount * oldOrder.price * tokenBDecimalsFactor));
+      const oldSellPriceWithPrecision = BigInt(Math.round(oldOrder.price * pricePrecision));
+      const oldTokenAamountWithDecimalsFactor = BigInt(await dexBookRead.tokenBToTokenA(oldSellAmountWithDecimalsFactor, oldSellPriceWithPrecision));
+  
+      const newOrder = {price: popupPrice, amount: popupAmount };
+      const newSellAmountWithDecimalsFactor = BigInt(Math.round(newOrder.amount * newOrder.price * tokenBDecimalsFactor));
+      const newSellPriceWithPrecision = BigInt(Math.round(newOrder.price * pricePrecision));
+      const newTokenAamountWithDecimalsFactor = BigInt(await dexBookRead.tokenBToTokenA(newSellAmountWithDecimalsFactor, newSellPriceWithPrecision));
+
+      const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+  
+      if (newTokenAamountWithDecimalsFactor > oldTokenAamountWithDecimalsFactor) {
+        const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
+        const tx = await tokenAContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(newTokenAamountWithDecimalsFactor - oldTokenAamountWithDecimalsFactor)));
+        await sleep(5000);
+      }
+  
+      const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+      const tx = await dexBookContractWrite.modifySellLimitOrder(oldOrder.id, oldSellPriceWithPrecision, newSellPriceWithPrecision, newSellAmountWithDecimalsFactor, [0], [0]);
+      await sleep(2000);
+    }
     setSelectedRow(null);
     setShowPopup(false);
   };
 
   const handleCancel = () => {
-    // Reset the selected row and hide the popup without saving changes
     setSelectedRow(null);
     setShowPopup(false);
   };
@@ -250,6 +299,8 @@ export default function Home() {
 
       const buyEvents = await dexBookContractRead.queryFilter("BuyMarketOrderFilled");
       const sellEvents = await dexBookContractRead.queryFilter("SellMarketOrderFilled");
+      setMarketOrders([...buyEvents, ...sellEvents].sort((a, b) => a.timestamp - b.timestamp));
+
       const mostRecentBuyPrice = buyEvents.length == 0 ? 0 : buyEvents[buyEvents.length - 1].args.price / pricePrecisionRead;
       const mostRecentSellPrice = sellEvents.length == 0 ? 0 : sellEvents[sellEvents.length - 1].args.price / pricePrecisionRead;
       const isSellTheMostRecentPrice = sellEvents.length > 0 && (buyEvents.length === 0 || sellEvents[sellEvents.length - 1].blockNumber > buyEvents[buyEvents.length - 1].blockNumber);
@@ -379,6 +430,7 @@ export default function Home() {
                     <th>Price ({tokenBSymbol})</th>
                     <th>Amount ({tokenASymbol})</th>
                     <th>Total ({tokenBSymbol})</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,14 +438,14 @@ export default function Home() {
                     <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
                       <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
                       <td>{to4decimals(order.amount)}</td>
-                      <td>{to4decimals(order.total)}</td>
+                      <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{position: "absolute", right: "0"}}/></td>
                     </tr>
                   ))}
                   {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
                     <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
                       <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
                       <td>{to4decimals(order.amount)}</td>
-                      <td>{to4decimals(order.total)}</td>
+                      <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{position: "absolute", right: "0"}}/></td>      
                     </tr>
                   ))}
                 </tbody>
@@ -401,11 +453,11 @@ export default function Home() {
               )}
             {showPopup && selectedRow && (
               <div className="popup">
-                <Input width="100%" style={{color: "white"}} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "2em" }} value={selectedRow.price} onChange={(e) => setSelectedRow({ ...selectedRow, price: e.target.value })} />
-                <Input width="100%" style={{color: "white"}} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "2em"}} value={selectedRow.amount} onChange={(e) => setSelectedRow({ ...selectedRow, amount: e.target.value })} />
+                <Input width="100%" style={{color: "white"}} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupPrice} onChange={(e) => setPopupPrice(e.target.value )} />
+                <Input width="100%" style={{color: "white"}} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "1em"}} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
                 <div className="popup-button-container">
-                  <Button size="xs" style={{ backgroundColor: "#525257", marginRight: "0.5em" }} onClick={handleSave}>Save</Button>
-                  <Button size="xs" style={{ backgroundColor: "#525257", marginLeft: "0.5em" }} onClick={handleCancel}>Cancel</Button>
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em" }} onClick={handleSave}>Confirm</Button>
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em" }} onClick={handleCancel}>Cancel</Button>
                 </div>
               </div>
             )}

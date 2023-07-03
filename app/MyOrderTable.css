@@ -20,6 +20,7 @@
   }
   
   .my-order-table th {
+    width: calc(100% / 3); /* Adjust the value based on the number of columns */
     padding: 0.1em;
     color: grey;
     text-align: left;
