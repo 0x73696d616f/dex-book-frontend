@@ -3,8 +3,11 @@
 import './OrderTable.css';
 import './MyOrderTable.css';
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
+const PriceChart = dynamic(() => import('./priceChart'), { ssr: false });
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPenToSquare } from "@fortawesome/free-solid-svg-icons";
+import moment from 'moment';
 
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
@@ -46,6 +49,8 @@ export default function Home() {
   const [price, setPrice] = useState(0);
   const [priceColor, setPriceColor] = useState("grey");
   const [marketOrders, setMarketOrders] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [chartLabels, setChartLabels] = useState([]);
 
   const [selectedRow, setSelectedRow] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
@@ -103,7 +108,7 @@ export default function Home() {
       const oldBuyPriceWithPrecision = BigInt(Math.round(pricePrecision / oldOrder.price));
       const oldTokenBamountWithDecimalsFactor = BigInt(await dexBookRead.tokenAToTokenB(oldBuyAmountWithDecimalsFactor, oldBuyPriceWithPrecision));
 
-      const newOrder = {price: popupPrice, amount: popupAmount };
+      const newOrder = { price: popupPrice, amount: popupAmount };
       const newBuyAmountWithDecimalsFactor = BigInt(Math.round(newOrder.amount * tokenADecimalsFactor));
       const newBuyPriceWithPrecision = BigInt(Math.round(pricePrecision / newOrder.price));
       const newTokenBamountWithDecimalsFactor = BigInt(await dexBookRead.tokenAToTokenB(newBuyAmountWithDecimalsFactor, newBuyPriceWithPrecision));
@@ -119,25 +124,25 @@ export default function Home() {
       const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
       const tx = await dexBookContractWrite.modifyBuyLimitOrder(oldOrder.id, oldBuyPriceWithPrecision, newBuyPriceWithPrecision, newBuyAmountWithDecimalsFactor, [0], [0]);
       await sleep(2000);
-    } else if (isSellOrdersClicked){
+    } else if (isSellOrdersClicked) {
       const oldOrder = selectedRow;
       const oldSellAmountWithDecimalsFactor = BigInt(Math.round(oldOrder.amount * oldOrder.price * tokenBDecimalsFactor));
       const oldSellPriceWithPrecision = BigInt(Math.round(oldOrder.price * pricePrecision));
       const oldTokenAamountWithDecimalsFactor = BigInt(await dexBookRead.tokenBToTokenA(oldSellAmountWithDecimalsFactor, oldSellPriceWithPrecision));
-  
-      const newOrder = {price: popupPrice, amount: popupAmount };
+
+      const newOrder = { price: popupPrice, amount: popupAmount };
       const newSellAmountWithDecimalsFactor = BigInt(Math.round(newOrder.amount * newOrder.price * tokenBDecimalsFactor));
       const newSellPriceWithPrecision = BigInt(Math.round(newOrder.price * pricePrecision));
       const newTokenAamountWithDecimalsFactor = BigInt(await dexBookRead.tokenBToTokenA(newSellAmountWithDecimalsFactor, newSellPriceWithPrecision));
 
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
-  
+
       if (newTokenAamountWithDecimalsFactor > oldTokenAamountWithDecimalsFactor) {
         const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
         const tx = await tokenAContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(newTokenAamountWithDecimalsFactor - oldTokenAamountWithDecimalsFactor)));
         await sleep(5000);
       }
-  
+
       const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
       const tx = await dexBookContractWrite.modifySellLimitOrder(oldOrder.id, oldSellPriceWithPrecision, newSellPriceWithPrecision, newSellAmountWithDecimalsFactor, [0], [0]);
       await sleep(2000);
@@ -299,16 +304,23 @@ export default function Home() {
 
       const buyEvents = await dexBookContractRead.queryFilter("BuyMarketOrderFilled");
       const sellEvents = await dexBookContractRead.queryFilter("SellMarketOrderFilled");
-      setMarketOrders([...buyEvents, ...sellEvents].sort((a, b) => a.timestamp - b.timestamp));
+      const marketOrdersRead = [...buyEvents, ...sellEvents].sort((a, b) => a.args.timestamp - b.args.timestamp);
+      setMarketOrders(marketOrdersRead);
 
       const mostRecentBuyPrice = buyEvents.length == 0 ? 0 : buyEvents[buyEvents.length - 1].args.price / pricePrecisionRead;
       const mostRecentSellPrice = sellEvents.length == 0 ? 0 : sellEvents[sellEvents.length - 1].args.price / pricePrecisionRead;
       const isSellTheMostRecentPrice = sellEvents.length > 0 && (buyEvents.length === 0 || sellEvents[sellEvents.length - 1].blockNumber > buyEvents[buyEvents.length - 1].blockNumber);
       setPrice(isSellTheMostRecentPrice ? mostRecentSellPrice : mostRecentBuyPrice);
       setPriceColor(isSellTheMostRecentPrice ? sellColor : buyColor);
+
+      const chartLabelsComputed = marketOrdersRead.map(order => moment(new Date(Number(order.args.timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss"));
+      const chartDataComputed = marketOrdersRead.map(order => Number(order.args.price) / Number(pricePrecisionRead));
+      setChartData(chartDataComputed);
+      setChartLabels(chartLabelsComputed);
     }
+
     if (buyOrders.length == 0 && sellOrders.length == 0) bootstrapDexBook();
-  }, [buyOrders, account, showPopup]);
+  }, [buyOrders, account, showPopup, marketOrders]);
 
   return (
     <div className={styles.myApp}>
@@ -367,7 +379,9 @@ export default function Home() {
           </div>
         </div>
         <div className={styles.column}>
-          <div className={styles.sixtyPercentLine}>Line 2 (60%)</div>
+          <div className={styles.sixtyPercentLine}>
+          <PriceChart chartLabels={chartLabels} chartData={chartData}></PriceChart>
+          </div>
           <div className={styles.fortyPercentLine}>
             <div className={styles.switchContainer}>
               <Button size="xs" style={isLimitClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleLimitClick}>Limit</Button>
@@ -418,43 +432,43 @@ export default function Home() {
             </table>
           </div>
           <div className={styles.halfLine}>
-            
-              <div className={styles.myOrdersSwitchContainer}>
-                <Button size="xs" style={isBuyOrdersClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleBuyOrdersClick}>Buy Orders</Button>
-                <Button size="xs" style={isSellOrdersClicked ? { ...switchButton, backgroundColor: 'red' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleSellOrdersClick}>Sell Orders</Button>
-              </div>
 
-              {!showPopup && (<table className="my-order-table">
-                <thead>
-                  <tr>
-                    <th>Price ({tokenBSymbol})</th>
-                    <th>Amount ({tokenASymbol})</th>
-                    <th>Total ({tokenBSymbol})</th>
-                    <th></th>
+            <div className={styles.myOrdersSwitchContainer}>
+              <Button size="xs" style={isBuyOrdersClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleBuyOrdersClick}>Buy Orders</Button>
+              <Button size="xs" style={isSellOrdersClicked ? { ...switchButton, backgroundColor: 'red' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleSellOrdersClick}>Sell Orders</Button>
+            </div>
+
+            {!showPopup && (<table className="my-order-table">
+              <thead>
+                <tr>
+                  <th>Price ({tokenBSymbol})</th>
+                  <th>Amount ({tokenASymbol})</th>
+                  <th>Total ({tokenBSymbol})</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {account && isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 && userSellOrders[account].map((order) => (
+                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
+                    <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
+                    <td>{to4decimals(order.amount)}</td>
+                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "0" }} /></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {account && isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 && userSellOrders[account].map((order) => (
-                    <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
-                      <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
-                      <td>{to4decimals(order.amount)}</td>
-                      <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{position: "absolute", right: "0"}}/></td>
-                    </tr>
-                  ))}
-                  {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
-                    <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
-                      <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
-                      <td>{to4decimals(order.amount)}</td>
-                      <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{position: "absolute", right: "0"}}/></td>      
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              )}
+                ))}
+                {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
+                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
+                    <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
+                    <td>{to4decimals(order.amount)}</td>
+                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "0" }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            )}
             {showPopup && selectedRow && (
               <div className="popup">
-                <Input width="100%" style={{color: "white"}} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupPrice} onChange={(e) => setPopupPrice(e.target.value )} />
-                <Input width="100%" style={{color: "white"}} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "1em"}} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
+                <Input width="100%" style={{ color: "white" }} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupPrice} onChange={(e) => setPopupPrice(e.target.value)} />
+                <Input width="100%" style={{ color: "white" }} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
                 <div className="popup-button-container">
                   <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em" }} onClick={handleSave}>Confirm</Button>
                   <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em" }} onClick={handleCancel}>Cancel</Button>
