@@ -156,6 +156,20 @@ export default function Home() {
     setShowPopup(false);
   };
 
+  const handleRemove = async () => {
+    if (isBuyOrdersClicked) {
+      const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+      const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+      await dexBookContractWrite.removeBuyLimitOrder(selectedRow.id, BigInt(pricePrecision / selectedRow.price));
+    } else if (isSellOrdersClicked) {
+      const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+      const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
+      await dexBookContractWrite.removeSellLimitOrder(selectedRow.id, BigInt(selectedRow.price * pricePrecision));
+    }
+    setSelectedRow(null);
+    setShowPopup(false);
+  };
+
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   function to4decimals(number) {
@@ -200,7 +214,7 @@ export default function Home() {
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
     const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor));
+    let tx = await tokenBContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor)));
     await sleep(5000);
 
     const dexBookWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
@@ -317,10 +331,42 @@ export default function Home() {
       const chartDataComputed = marketOrdersRead.map(order => Number(order.args.price) / Number(pricePrecisionRead));
       setChartData(chartDataComputed);
       setChartLabels(chartLabelsComputed);
+
+      dexBookContractRead.on("BuyLimitOrderPlaced", async (orderId, price, maker, amount) => {
+        const priceComputed = pricePrecisionRead / price;
+        const amountComputed = amount / tokenADecimalsFactorRead;
+        const totalComputed = amountComputed * priceComputed;
+        const newBuyOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
+        setBuyOrders(buyOrders => {return  [...buyOrders, newBuyOrder].sort((a, b) => b.price - a.price)});
+        setUserBuyOrders(userBuyOrders => {
+          let newUserBuyOrders = userBuyOrders[maker];
+          if (!newUserBuyOrders) newUserBuyOrders = [];
+          newUserBuyOrders.push(newBuyOrder);
+          newUserBuyOrders.sort((a, b) => b.price - a.price);
+          userBuyOrders[maker] = newUserBuyOrders;
+          return userBuyOrders
+        });
+      });
+
+      dexBookContractRead.on("SellLimitOrderPlaced", async (orderId, price, maker, amount) => {
+        const totalComputed = amount / tokenBDecimalsFactorRead;
+        const priceComputed = price / pricePrecisionRead ;
+        const amountComputed = totalComputed / priceComputed;
+        const newSellOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
+        setSellOrders(sellOrders => {return  [...sellOrders, newSellOrder].sort((a, b) => a.price - b.price)});
+        setUserSellOrders(userSellOrders => {
+          let newUserSellOrders = userSellOrders[maker];
+          if (!newUserSellOrders) newUserSellOrders = [];
+          newUserSellOrders.push(newSellOrder);
+          newUserSellOrders.sort((a, b) => a.price - b.price);
+          userSellOrders[maker] = newUserSellOrders;
+          return userSellOrders
+        });
+      });
     }
 
-    if (buyOrders.length == 0 && sellOrders.length == 0) bootstrapDexBook();
-  }, [buyOrders, account, showPopup, marketOrders]);
+    bootstrapDexBook();
+  }, []);
 
   return (
     <div className={styles.myApp}>
@@ -468,10 +514,13 @@ export default function Home() {
             {showPopup && selectedRow && (
               <div className="popup">
                 <Input width="100%" style={{ color: "white" }} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupPrice} onChange={(e) => setPopupPrice(e.target.value)} />
-                <Input width="100%" style={{ color: "white" }} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
+                <Input width="100%" style={{ color: "white" }} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "2em" }} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
                 <div className="popup-button-container">
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em" }} onClick={handleSave}>Confirm</Button>
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em" }} onClick={handleCancel}>Cancel</Button>
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em", fontFamily: 'Montserrat, sans-serif'  }} onClick={handleSave}>Edit</Button>
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif'  }} onClick={handleRemove}>Remove</Button>
+                </div>
+                <div className="popup-button-container">
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginTop: "1em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleCancel}>Cancel</Button>
                 </div>
               </div>
             )}
