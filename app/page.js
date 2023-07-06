@@ -17,7 +17,7 @@ import Web3 from 'web3';
 
 export default function Home() {
   const dexBookAbi = require("../contracts/DexBook.json").abi;
-  const dexBookAddress = "0xafc548695E9B4CE079693C68Dc16b0FfA29579C8";
+  const dexBookAddress = "0x63bEfAA79c02bA13DC7568a8aa1Ed8e94388a0A9";
   const tokenAabi = require("../contracts/USDC.json").abi;
   const tokenBabi = require("../contracts/WETH.json").abi;
   const rpcUrl = "https://erpc.apothem.network"
@@ -48,7 +48,6 @@ export default function Home() {
 
   const [price, setPrice] = useState(0);
   const [priceColor, setPriceColor] = useState("grey");
-  const [marketOrders, setMarketOrders] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [chartLabels, setChartLabels] = useState([]);
 
@@ -319,7 +318,6 @@ export default function Home() {
       const buyEvents = await dexBookContractRead.queryFilter("BuyMarketOrderFilled");
       const sellEvents = await dexBookContractRead.queryFilter("SellMarketOrderFilled");
       const marketOrdersRead = [...buyEvents, ...sellEvents].sort((a, b) => a.args.timestamp - b.args.timestamp);
-      setMarketOrders(marketOrdersRead);
 
       const mostRecentBuyPrice = buyEvents.length == 0 ? 0 : buyEvents[buyEvents.length - 1].args.price / pricePrecisionRead;
       const mostRecentSellPrice = sellEvents.length == 0 ? 0 : sellEvents[sellEvents.length - 1].args.price / pricePrecisionRead;
@@ -337,7 +335,7 @@ export default function Home() {
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
         const newBuyOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
-        setBuyOrders(buyOrders => {return  [...buyOrders, newBuyOrder].sort((a, b) => b.price - a.price)});
+        setBuyOrders(buyOrders => { return [...buyOrders, newBuyOrder].sort((a, b) => b.price - a.price) });
         setUserBuyOrders(userBuyOrders => {
           let newUserBuyOrders = userBuyOrders[maker];
           if (!newUserBuyOrders) newUserBuyOrders = [];
@@ -350,10 +348,10 @@ export default function Home() {
 
       dexBookContractRead.on("SellLimitOrderPlaced", async (orderId, price, maker, amount) => {
         const totalComputed = amount / tokenBDecimalsFactorRead;
-        const priceComputed = price / pricePrecisionRead ;
+        const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
         const newSellOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
-        setSellOrders(sellOrders => {return  [...sellOrders, newSellOrder].sort((a, b) => a.price - b.price)});
+        setSellOrders(sellOrders => { return [...sellOrders, newSellOrder].sort((a, b) => a.price - b.price) });
         setUserSellOrders(userSellOrders => {
           let newUserSellOrders = userSellOrders[maker];
           if (!newUserSellOrders) newUserSellOrders = [];
@@ -363,6 +361,128 @@ export default function Home() {
           return userSellOrders
         });
       });
+
+      dexBookContractRead.on("BuyMarketOrderFilled", async (timestamp, price, maker, amount) => {
+        const newPrice = price / pricePrecisionRead;
+        const newTimestamp = moment(new Date(Number(timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss");
+        setPrice(newPrice);
+        setPriceColor(buyColor);
+        setChartData(chartData => [...chartData, newPrice]);
+        setChartLabels(chartLabels => [...chartLabels, newTimestamp]);
+      });
+
+      dexBookContractRead.on("SellMarketOrderFilled", async (timestamp, price, maker, amount) => {
+        const newPrice = price / pricePrecisionRead;
+        const newTimestamp = moment(new Date(Number(timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss");
+        setPrice(newPrice);
+        setPriceColor(sellColor);
+        setChartData(chartData => [...chartData, newPrice]);
+        setChartLabels(chartLabels => [...chartLabels, newTimestamp]);
+      });
+
+      dexBookContractRead.on("BuyLimitOrderFilled", async (orderId_, price, maker, amount) => {
+        const priceComputed = pricePrecisionRead / price;
+        const amountComputed = amount / tokenADecimalsFactorRead;
+        const totalComputed = amountComputed * priceComputed;
+        setBuyOrders(prevBuyOrders => {
+          const index = prevBuyOrders.findIndex(order => order.price === priceComputed);
+          const newAmount = prevBuyOrders[index].amount - amountComputed;
+          if (newAmount <= 0) {
+            prevBuyOrders.splice(index, 1);
+          } else {
+            prevBuyOrders[index].amount = newAmount;
+            prevBuyOrders[index].total = prevBuyOrders[index].total - totalComputed;
+          }
+          return prevBuyOrders;
+        });
+        setUserBuyOrders(prevUserBuyOrders => {
+          const index = prevUserBuyOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          const newAmount = prevUserBuyOrders[maker][index].amount - amountComputed;
+          if (newAmount <= 0) {
+            prevUserBuyOrders[maker].splice(index, 1);
+          } else {
+            prevUserBuyOrders[maker][index].amount = newAmount;
+            prevUserBuyOrders[maker][index].total = prevUserBuyOrders[maker][index].total - totalComputed;
+          }
+          return prevUserBuyOrders
+        });
+      });
+
+      dexBookContractRead.on("SellLimitOrderFilled", async (orderId_, price, maker, amount) => {
+        const totalComputed = amount / tokenBDecimalsFactorRead;
+        const priceComputed = price / pricePrecisionRead;
+        const amountComputed = totalComputed / priceComputed;
+        setSellOrders(prevSellOrders => {
+          const index = prevSellOrders.findIndex(order => order.price === priceComputed);
+          const newAmount = prevSellOrders[index].amount - amountComputed;
+          if (newAmount <= 0) {
+            prevSellOrders.splice(index, 1);
+          } else {
+            prevSellOrders[index].amount = newAmount;
+            prevSellOrders[index].total = prevSellOrders[index].total - totalComputed;
+          }
+          return prevSellOrders;
+        });
+        setUserSellOrders(prevUserSellOrders => {
+          const index = prevUserSellOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          const newAmount = prevUserSellOrders[maker][index].amount - amountComputed;
+          if (newAmount <= 0) {
+            prevUserSellOrders[maker].splice(index, 1);
+          } else {
+            prevUserSellOrders[maker][index].amount = newAmount;
+            prevUserSellOrders[maker][index].total = prevUserSellOrders[maker][index].total - totalComputed;
+          }
+          return prevUserSellOrders
+        });
+      });
+
+      dexBookContractRead.on("BuyLimitOrderCancelled", async (orderId_, price, maker, amount) => {
+        const priceComputed = pricePrecisionRead / price;
+        const amountComputed = amount / tokenADecimalsFactorRead;
+        const totalComputed = amountComputed * priceComputed;
+        setBuyOrders(prevBuyOrders => {
+          const index = prevBuyOrders.findIndex(order => order.price === priceComputed);
+          const newAmount = prevBuyOrders[index].amount - amountComputed;
+          if (newAmount <= 0) {
+            prevBuyOrders.splice(index, 1);
+          } else {
+            prevBuyOrders[index].amount = newAmount;
+            prevBuyOrders[index].total = prevBuyOrders[index].total - totalComputed;
+          }
+          return prevBuyOrders;
+        });
+        setUserBuyOrders(prevUserBuyOrders => {
+          const index = prevUserBuyOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          prevUserBuyOrders[maker].splice(index, 1);
+          return prevUserBuyOrders
+        });
+      });
+
+      dexBookContractRead.on("SellLimitOrderCancelled", async (orderId_, price, maker, amount) => {
+        const totalComputed = amount / tokenBDecimalsFactorRead;
+        const priceComputed = price / pricePrecisionRead;
+        const amountComputed = totalComputed / priceComputed;
+        setSellOrders(prevSellOrders => {
+          const index = prevSellOrders.findIndex(order => order.price === priceComputed);
+          const newAmount = prevSellOrders[index].amount - amountComputed;
+          if (newAmount <= 0) {
+            prevSellOrders.splice(index, 1);
+          } else {
+            prevSellOrders[index].amount = newAmount;
+            prevSellOrders[index].total = prevSellOrders[index].total - totalComputed;
+          }
+          return prevSellOrders;
+        });
+        setUserSellOrders(prevUserSellOrders => {
+          const index = prevUserSellOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          prevUserSellOrders[maker].splice(index, 1);
+          return prevUserSellOrders
+        });
+      });
+
+      return () => {
+        dexBookContractRead.removeAllListeners();
+      };
     }
 
     bootstrapDexBook();
@@ -426,7 +546,7 @@ export default function Home() {
         </div>
         <div className={styles.column}>
           <div className={styles.sixtyPercentLine}>
-          <PriceChart chartLabels={chartLabels} chartData={chartData}></PriceChart>
+            <PriceChart chartLabels={chartLabels} chartData={chartData}></PriceChart>
           </div>
           <div className={styles.fortyPercentLine}>
             <div className={styles.switchContainer}>
@@ -516,8 +636,8 @@ export default function Home() {
                 <Input width="100%" style={{ color: "white" }} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupPrice} onChange={(e) => setPopupPrice(e.target.value)} />
                 <Input width="100%" style={{ color: "white" }} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "2em" }} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
                 <div className="popup-button-container">
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em", fontFamily: 'Montserrat, sans-serif'  }} onClick={handleSave}>Edit</Button>
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif'  }} onClick={handleRemove}>Remove</Button>
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleSave}>Edit</Button>
+                  <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleRemove}>Remove</Button>
                 </div>
                 <div className="popup-button-container">
                   <Button size="sm" style={{ backgroundColor: "#525257", marginTop: "1em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleCancel}>Cancel</Button>
