@@ -5,7 +5,7 @@ const LimitMarketButton = ({ isClicked, onClick, label, bgColor, width }) => {
     <button
       style={{
         marginLeft: "0.5em",
-        fontFamily: 'Montserrat, sans-serif',
+        fontFamily: "'Montserrat', sans-serif",
         backgroundColor: isClicked ? bgColor : '#525257',
         color: 'white',
         border: 'none',
@@ -13,6 +13,7 @@ const LimitMarketButton = ({ isClicked, onClick, label, bgColor, width }) => {
         height: "100%",
         width: width,
         cursor: 'pointer',
+        fontWeight: 'bold',
       }}
       onClick={onClick}
     >

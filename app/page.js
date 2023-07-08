@@ -23,7 +23,7 @@ import Web3 from 'web3';
 
 export default function Home() {
   const dexBookAbi = require("../contracts/DexBook.json").abi;
-  const dexBookAddress = "0x63bEfAA79c02bA13DC7568a8aa1Ed8e94388a0A9";
+  const dexBookAddress = "0xAD6fE09A9191556a5ECF1D0e0ca1AC6b20944B49";
   const tokenAabi = require("../contracts/USDC.json").abi;
   const tokenBabi = require("../contracts/WETH.json").abi;
   const rpcUrl = "https://erpc.apothem.network"
@@ -62,10 +62,11 @@ export default function Home() {
   const [popupPrice, setPopupPrice] = useState(0);
   const [popupAmount, setPopupAmount] = useState(0);
 
+  const [tokenABalance, setTokenABalance] = useState(0);
+  const [tokenBBalance, setTokenBBalance] = useState(0);
+
   const buyColor = "green"
   const sellColor = "red"
-
-  const switchButton = { marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif' }
 
   const pairs = [
     { id: 1, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
@@ -170,7 +171,7 @@ export default function Home() {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   function to4decimals(number) {
-    return number.toFixed(4);
+    return number.toFixed(3);
   }
 
   async function placeBuyLimitOrder() {
@@ -259,6 +260,22 @@ export default function Home() {
     const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
     await tokenBContractWrite.approve(dexBookAddress, totalAmount);
     await sleep(5000);
+  }
+
+  async function tokenAFaucet() {
+    try {
+      const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+      const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
+      await tokenAContractWrite.faucet();
+    } catch (error) {console.log(error)}
+  }
+
+  async function tokenBFaucet() {
+    try {
+      const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
+      const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+      await tokenBContractWrite.faucet();
+    } catch (error) {console.log(error)}
   }
 
   useEffect(() => {
@@ -384,7 +401,7 @@ export default function Home() {
           newUserSellOrders.push(newSellOrder);
           newUserSellOrders.sort((a, b) => a.price - b.price);
           userSellOrders[maker] = newUserSellOrders;
-          return userSellOrders
+          return userSellOrders;
         });
       });
 
@@ -419,7 +436,7 @@ export default function Home() {
             prevBuyOrders[index].amount = newAmount;
             prevBuyOrders[index].total = prevBuyOrders[index].total - totalComputed;
           }
-          return prevBuyOrders;
+          return [...prevBuyOrders];
         });
         setUserBuyOrders(prevUserBuyOrders => {
           const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
@@ -430,7 +447,7 @@ export default function Home() {
             prevUserBuyOrders[maker][index].amount = newAmount;
             prevUserBuyOrders[maker][index].total = prevUserBuyOrders[maker][index].total - totalComputed;
           }
-          return prevUserBuyOrders
+          return prevUserBuyOrders;
         });
       });
 
@@ -447,7 +464,7 @@ export default function Home() {
             prevSellOrders[index].amount = newAmount;
             prevSellOrders[index].total = prevSellOrders[index].total - totalComputed;
           }
-          return prevSellOrders;
+          return [...prevSellOrders];
         });
         setUserSellOrders(prevUserSellOrders => {
           const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
@@ -458,7 +475,7 @@ export default function Home() {
             prevUserSellOrders[maker][index].amount = newAmount;
             prevUserSellOrders[maker][index].total = prevUserSellOrders[maker][index].total - totalComputed;
           }
-          return prevUserSellOrders
+          return prevUserSellOrders;
         });
       });
 
@@ -480,7 +497,7 @@ export default function Home() {
         setUserBuyOrders(prevUserBuyOrders => {
           const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
           prevUserBuyOrders[maker].splice(index, 1);
-          return prevUserBuyOrders
+          return prevUserBuyOrders;
         });
       });
 
@@ -502,7 +519,48 @@ export default function Home() {
         setUserSellOrders(prevUserSellOrders => {
           const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
           prevUserSellOrders[maker].splice(index, 1);
-          return prevUserSellOrders
+          return prevUserSellOrders;
+        });
+      });
+
+      dexBookContractRead.on("BuyLimitOrderModified", async (orderId, price, maker, prevAmount, amount) => {
+        const priceComputed = Number(pricePrecisionRead / price);
+        const oldAmountComputed = Number(prevAmount / tokenADecimalsFactorRead);
+        const oldTotalComputed = Number(oldAmountComputed * priceComputed);
+        const amountComputed = Number(amount / tokenADecimalsFactorRead);
+        const totalComputed = Number(amountComputed * priceComputed);
+
+        setBuyOrders(prevBuyOrders => {
+          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          prevBuyOrders[index].amount = prevBuyOrders[index].amount - oldAmountComputed + amountComputed;
+          prevBuyOrders[index].total = prevBuyOrders[index].total - oldTotalComputed + totalComputed;
+          return [...prevBuyOrders];
+        });
+        setUserBuyOrders(prevUserBuyOrders => {
+          const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4) && order.id === orderId);
+          prevUserBuyOrders[maker][index].amount = amountComputed;
+          prevUserBuyOrders[maker][index].total = totalComputed;
+          return prevUserBuyOrders;
+        });
+      });
+
+      dexBookContractRead.on("SellLimitOrderModified", async (orderId, price, maker, prevAmount, amount) => {
+        const totalComputed = Number(amount / tokenBDecimalsFactorRead);
+        const oldTotalComputed = Number(prevAmount / tokenBDecimalsFactorRead);
+        const priceComputed = Number(price / pricePrecisionRead);
+        const amountComputed = Number(totalComputed / priceComputed);
+        const oldAmountComputed = Number(oldTotalComputed / priceComputed);
+        setSellOrders(prevSellOrders => {
+          const index = prevSellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          prevSellOrders[index].amount = prevSellOrders[index].amount - oldAmountComputed + amountComputed;
+          prevSellOrders[index].total = prevSellOrders[index].total - oldTotalComputed + totalComputed;
+          return [...prevSellOrders];
+        });
+        setUserSellOrders(prevUserSellOrders => {
+          const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId);
+          prevUserSellOrders[maker][index].amount = amountComputed;
+          prevUserSellOrders[maker][index].total = totalComputed;   
+          return prevUserSellOrders;
         });
       });
     }
@@ -513,8 +571,8 @@ export default function Home() {
   return (
     <div className={styles.myApp}>
       <nav className={styles.navbar}>
-        <NavbarButton onClick={() => {}} label={tokenASymbol + "faucet"} width="8%" marginLeft="0.5em"> </NavbarButton>
-        <NavbarButton onClick={() => {}} label={tokenBSymbol + "faucet"} width="8%"> </NavbarButton>
+        <NavbarButton onClick={tokenAFaucet} label={tokenASymbol + " Faucet"} width="8%" marginLeft="0.5em"> </NavbarButton>
+        <NavbarButton onClick={tokenBFaucet} label={tokenBSymbol + " Faucet"} width="8%"> </NavbarButton>
         <h1>DexBook</h1>
         {account ? (
           <NavbarButton onClick={() => {}} label={account.slice(0, 6) + "..." + account.slice(-4)} width="16%">
@@ -591,10 +649,10 @@ export default function Home() {
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <AmountInput setAmount={setBuyAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy="true"> </AmountInput>
+                <AmountInput setAmount={setBuyAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy={true}> </AmountInput>
               </div>
               <div className={styles.menuItem}>
-                <AmountInput setAmount={setSellAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy="false"> </AmountInput>
+                <AmountInput setAmount={setSellAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy={false}> </AmountInput>
               </div>
             </div>
             <div className={styles.buttonContainer}>
@@ -645,14 +703,14 @@ export default function Home() {
                   <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
                     <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
                     <td>{to4decimals(order.amount)}</td>
-                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "0" }} /></td>
+                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "5%" }} /></td>
                   </tr>
                 ))}
                 {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
                   <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
                     <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
                     <td>{to4decimals(order.amount)}</td>
-                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "0" }} /></td>
+                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "5%" }} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -660,16 +718,20 @@ export default function Home() {
             )}
             {showPopup && selectedRow && (
               <div className="popup">
-                <Input width="100%" style={{ color: "white" }} labelRight={tokenBSymbol} placeHolder={selectedRow.price} label="price" css={{ $$inputColor: "#525257", marginBottom: "1em" }} value={popupPrice} onChange={(e) => setPopupPrice(e.target.value)} />
-                <Input width="100%" style={{ color: "white" }} labelRight={tokenASymbol} placeHolder={selectedRow.amount} label="amount" css={{ $$inputColor: "#525257", marginBottom: "2em" }} value={popupAmount} onChange={(e) => setPopupAmount(e.target.value)} />
-                <div className="popup-button-container">
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginRight: "0.5em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleSave}>Edit</Button>
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleRemove}>Remove</Button>
-                </div>
-                <div className="popup-button-container">
-                  <Button size="sm" style={{ backgroundColor: "#525257", marginTop: "1em", fontFamily: 'Montserrat, sans-serif' }} onClick={handleCancel}>Cancel</Button>
-                </div>
+              <div style={{height: "15%"}}>
+                <PriceInput isLimitClicked={true} setPrice={setPopupPrice} isMarketClicked={false} tokenSymbol={tokenBSymbol} value={popupPrice}></PriceInput>
               </div>
+              <div style={{height: "15%", marginTop: "1em"}}>
+                <AmountInput setAmount={setPopupAmount} isMarketClicked={false} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} value={popupAmount}> </AmountInput>
+              </div>
+              <div className="popup-button-container">
+                <BuySellButton onClick={handleSave} color="white" label="Edit"></BuySellButton>
+                <BuySellButton onClick={handleRemove} color="white" label="Remove"></BuySellButton>
+              </div>
+              <div className="popup-button-cancel">
+                <BuySellButton onClick={handleCancel} color="white" label="Cancel"></BuySellButton>
+              </div>
+            </div>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React from "react";
 
-const PriceInput = ({ isLimitClicked, setPrice, isMarketClicked, tokenSymbol }) => {
+const PriceInput = ({ isLimitClicked, setPrice, isMarketClicked, tokenSymbol, value }) => {
   return (
     <div
       style={{
@@ -21,10 +21,11 @@ const PriceInput = ({ isLimitClicked, setPrice, isMarketClicked, tokenSymbol }) 
           color: isMarketClicked ? "grey" : "white",
           backgroundColor: isLimitClicked ? "#525257" : "transparent",
           border: "none",
-          paddingLeft: "0.3em",
+          paddingLeft: "4em",
           outline: "none",
           fontFamily: 'Montserrat, sans-serif',
         }}
+        value={value}
         disabled={isMarketClicked}
       />
       <span style={{ marginRight: "0.3em", color: "#ababab", fontWeight: "bold", fontFamily: "'Montserrat', sans-serif" }}>{tokenSymbol}</span>

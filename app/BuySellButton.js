@@ -15,11 +15,12 @@ const BuySellButton = ({ onClick, color, label }) => {
         margin: "0.5em",
         color: color,
         backgroundColor: "#525257",
-        fontFamily: 'Montserrat, sans-serif',
+        fontFamily: "'Montserrat', sans-serif",
         height: "100%",
         border: "none",
         borderRadius: "0.5em",
         cursor: "pointer",
+        fontWeight: "bold",
       }}
     >
       {label}

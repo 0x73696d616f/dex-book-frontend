@@ -57,9 +57,19 @@
   border-radius: 1em;
   padding: 10px;
   z-index: 1;
+  height: 80%;
 }
 
 .popup-button-container {
+  margin-top: 0.5em;
+  height: 10%;
   display: flex;
   justify-content: center; /* or space-between, space-around, etc. */
+}
+
+.popup-button-cancel {
+  margin-top: 1em;
+  width: 50%;
+  margin-left: 25%;
+  height: 10%;
 }
