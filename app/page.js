@@ -5,9 +5,15 @@ import './MyOrderTable.css';
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 const PriceChart = dynamic(() => import('./priceChart'), { ssr: false });
+import PriceInput from './PriceInput';
+import AmountInput from './AmountInput';
+import BuySellButton from './BuySellButton';
+import LimitMarketButton from './LimitMarketButton';
+import NavbarButton from './NavbarButton';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPenToSquare } from "@fortawesome/free-solid-svg-icons";
 import moment from 'moment';
+
 
 import styles from './page.module.css'
 import { Button } from "@nextui-org/react";
@@ -59,8 +65,6 @@ export default function Home() {
   const buyColor = "green"
   const sellColor = "red"
 
-  const buyButton = { width: "100%", margin: "0.5em", color: buyColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif', maxHeight: "100%" }
-  const sellButton = { width: "100%", margin: "0.5em", color: sellColor, backgroundColor: "#525257", fontFamily: 'Montserrat, sans-serif', maxHeight: "100%" }
   const switchButton = { marginLeft: "0.5em", fontFamily: 'Montserrat, sans-serif' }
 
   const pairs = [
@@ -115,14 +119,11 @@ export default function Home() {
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
       if (newTokenBamountWithDecimalsFactor > oldTokenBamountWithDecimalsFactor) {
-        const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-        const tx = await tokenBContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(newTokenBamountWithDecimalsFactor - oldTokenBamountWithDecimalsFactor)));
-        await sleep(5000);
+        await approveTokenB(signer, newTokenBamountWithDecimalsFactor - oldTokenBamountWithDecimalsFactor);
       }
 
       const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-      const tx = await dexBookContractWrite.modifyBuyLimitOrder(oldOrder.id, oldBuyPriceWithPrecision, newBuyPriceWithPrecision, newBuyAmountWithDecimalsFactor, [0], [0]);
-      await sleep(2000);
+      await dexBookContractWrite.modifyBuyLimitOrder(oldOrder.id, oldBuyPriceWithPrecision, newBuyPriceWithPrecision, newBuyAmountWithDecimalsFactor, [0], [0]);
     } else if (isSellOrdersClicked) {
       const oldOrder = selectedRow;
       const oldSellAmountWithDecimalsFactor = BigInt(Math.round(oldOrder.amount * oldOrder.price * tokenBDecimalsFactor));
@@ -137,14 +138,11 @@ export default function Home() {
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
       if (newTokenAamountWithDecimalsFactor > oldTokenAamountWithDecimalsFactor) {
-        const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
-        const tx = await tokenAContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(newTokenAamountWithDecimalsFactor - oldTokenAamountWithDecimalsFactor)));
-        await sleep(5000);
+        await approveTokenA(signer, newTokenAamountWithDecimalsFactor - oldTokenAamountWithDecimalsFactor)
       }
 
       const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-      const tx = await dexBookContractWrite.modifySellLimitOrder(oldOrder.id, oldSellPriceWithPrecision, newSellPriceWithPrecision, newSellAmountWithDecimalsFactor, [0], [0]);
-      await sleep(2000);
+      await dexBookContractWrite.modifySellLimitOrder(oldOrder.id, oldSellPriceWithPrecision, newSellPriceWithPrecision, newSellAmountWithDecimalsFactor, [0], [0]);
     }
     setSelectedRow(null);
     setShowPopup(false);
@@ -182,13 +180,10 @@ export default function Home() {
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
-    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-    let tx = await tokenBContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenBamountWithDecimalsFactor));
-    await sleep(5000);
+    await approveTokenB(signer, tokenBamountWithDecimalsFactor);
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    tx = await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
-    await sleep(2000);
+    await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
   }
 
   async function placeSellLimitOrder() {
@@ -198,13 +193,10 @@ export default function Home() {
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
-    const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
-    let tx = await tokenAContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(tokenAamountWithDecimalsFactor));
-    await sleep(5000);
+    await approveTokenA(signer, tokenAamountWithDecimalsFactor);
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    tx = await dexBookContractWrite.placeSellLimitOrder(sellAmountWithDecimalsFactor, sellPriceWithPrecision, [0], [0]);
-    await sleep(2000);
+    await dexBookContractWrite.placeSellLimitOrder(sellAmountWithDecimalsFactor, sellPriceWithPrecision, [0], [0]);
   }
 
   async function placeBuyMarketOrder() {
@@ -212,13 +204,10 @@ export default function Home() {
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
-    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
-    let tx = await tokenBContractWrite.approve(dexBookAddress, BigInt(await dexBookRead.amountPlusFee(buyAmountWithDecimalsFactor)));
-    await sleep(5000);
+    await approveTokenB(signer, buyAmountWithDecimalsFactor);
 
     const dexBookWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    tx = await dexBookWrite.placeBuyMarketOrder(buyAmountWithDecimalsFactor);
-    await sleep(2000);
+    await dexBookWrite.placeBuyMarketOrder(buyAmountWithDecimalsFactor);
   }
 
   async function placeSellMarketOrder() {
@@ -226,13 +215,10 @@ export default function Home() {
 
     const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
 
-    const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenBabi, signer);
-    let tx = await tokenAContractWrite.approve(dexBookAddress, await dexBookRead.amountPlusFee(sellAmountWithDecimalsFactor));
-    await sleep(5000);
+    await approveTokenA(signer, sellAmountWithDecimalsFactor);
 
     const dexBookWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    tx = await dexBookWrite.placeSellMarketOrder(sellAmountWithDecimalsFactor);
-    await sleep(2000);
+    await dexBookWrite.placeSellMarketOrder(sellAmountWithDecimalsFactor);
   }
 
 
@@ -253,6 +239,26 @@ export default function Home() {
     } else {
       console.error('MetaMask extension not detected');
     }
+  }
+
+  async function approveTokenA(signer, amount) {
+    const totalAmount = BigInt(await dexBookRead.amountPlusFee(BigInt(amount)));
+
+    if (await tokenA.allowance(account, dexBookAddress) >= totalAmount) return;
+
+    const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
+    await tokenAContractWrite.approve(dexBookAddress, totalAmount);
+    await sleep(5000);
+  }
+
+  async function approveTokenB(signer, amount) {
+    const totalAmount = BigInt(await dexBookRead.amountPlusFee(BigInt(amount)));
+
+    if (await tokenB.allowance(account, dexBookAddress) >= totalAmount) return;
+
+    const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
+    await tokenBContractWrite.approve(dexBookAddress, totalAmount);
+    await sleep(5000);
   }
 
   useEffect(() => {
@@ -330,12 +336,23 @@ export default function Home() {
       setChartData(chartDataComputed);
       setChartLabels(chartLabelsComputed);
 
+      dexBookContractRead.removeAllListeners();
+
       dexBookContractRead.on("BuyLimitOrderPlaced", async (orderId, price, maker, amount) => {
         const priceComputed = pricePrecisionRead / price;
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
         const newBuyOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
-        setBuyOrders(buyOrders => { return [...buyOrders, newBuyOrder].sort((a, b) => b.price - a.price) });
+        setBuyOrders(prevBuyOrders => {
+          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          if (index === -1) {
+            return [...prevBuyOrders, newBuyOrder].sort((a, b) => b.price - a.price)
+          }
+          prevBuyOrders[index].amount += amountComputed;
+          prevBuyOrders[index].total += totalComputed;
+          return [...prevBuyOrders];
+
+        });
         setUserBuyOrders(userBuyOrders => {
           let newUserBuyOrders = userBuyOrders[maker];
           if (!newUserBuyOrders) newUserBuyOrders = [];
@@ -351,7 +368,16 @@ export default function Home() {
         const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
         const newSellOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
-        setSellOrders(sellOrders => { return [...sellOrders, newSellOrder].sort((a, b) => a.price - b.price) });
+        setSellOrders(sellOrders => {
+          const index = sellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          if (index === -1) {
+            return [...sellOrders, newSellOrder].sort((a, b) => a.price - b.price)
+          }
+
+          sellOrders[index].amount += amountComputed;
+          sellOrders[index].total += totalComputed;
+          return [...sellOrders];
+        });
         setUserSellOrders(userSellOrders => {
           let newUserSellOrders = userSellOrders[maker];
           if (!newUserSellOrders) newUserSellOrders = [];
@@ -385,9 +411,9 @@ export default function Home() {
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
         setBuyOrders(prevBuyOrders => {
-          const index = prevBuyOrders.findIndex(order => order.price === priceComputed);
+          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
           const newAmount = prevBuyOrders[index].amount - amountComputed;
-          if (newAmount <= 0) {
+          if (newAmount.toFixed(4) <= 0) {
             prevBuyOrders.splice(index, 1);
           } else {
             prevBuyOrders[index].amount = newAmount;
@@ -396,7 +422,7 @@ export default function Home() {
           return prevBuyOrders;
         });
         setUserBuyOrders(prevUserBuyOrders => {
-          const index = prevUserBuyOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
           const newAmount = prevUserBuyOrders[maker][index].amount - amountComputed;
           if (newAmount <= 0) {
             prevUserBuyOrders[maker].splice(index, 1);
@@ -413,9 +439,9 @@ export default function Home() {
         const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
         setSellOrders(prevSellOrders => {
-          const index = prevSellOrders.findIndex(order => order.price === priceComputed);
+          const index = prevSellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
           const newAmount = prevSellOrders[index].amount - amountComputed;
-          if (newAmount <= 0) {
+          if (newAmount.toFixed(4) <= 0) {
             prevSellOrders.splice(index, 1);
           } else {
             prevSellOrders[index].amount = newAmount;
@@ -424,9 +450,9 @@ export default function Home() {
           return prevSellOrders;
         });
         setUserSellOrders(prevUserSellOrders => {
-          const index = prevUserSellOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
           const newAmount = prevUserSellOrders[maker][index].amount - amountComputed;
-          if (newAmount <= 0) {
+          if (newAmount.toFixed(4) <= 0) {
             prevUserSellOrders[maker].splice(index, 1);
           } else {
             prevUserSellOrders[maker][index].amount = newAmount;
@@ -441,18 +467,18 @@ export default function Home() {
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
         setBuyOrders(prevBuyOrders => {
-          const index = prevBuyOrders.findIndex(order => order.price === priceComputed);
+          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
           const newAmount = prevBuyOrders[index].amount - amountComputed;
-          if (newAmount <= 0) {
+          if (newAmount.toFixed(4) <= 0) {
             prevBuyOrders.splice(index, 1);
           } else {
             prevBuyOrders[index].amount = newAmount;
             prevBuyOrders[index].total = prevBuyOrders[index].total - totalComputed;
           }
-          return prevBuyOrders;
+          return [...prevBuyOrders];
         });
         setUserBuyOrders(prevUserBuyOrders => {
-          const index = prevUserBuyOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
           prevUserBuyOrders[maker].splice(index, 1);
           return prevUserBuyOrders
         });
@@ -463,26 +489,22 @@ export default function Home() {
         const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
         setSellOrders(prevSellOrders => {
-          const index = prevSellOrders.findIndex(order => order.price === priceComputed);
+          const index = prevSellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
           const newAmount = prevSellOrders[index].amount - amountComputed;
-          if (newAmount <= 0) {
+          if (newAmount.toFixed(4) <= 0) {
             prevSellOrders.splice(index, 1);
           } else {
             prevSellOrders[index].amount = newAmount;
             prevSellOrders[index].total = prevSellOrders[index].total - totalComputed;
           }
-          return prevSellOrders;
+          return [...prevSellOrders];
         });
         setUserSellOrders(prevUserSellOrders => {
-          const index = prevUserSellOrders[maker].findIndex(order => order.price == priceComputed && order.id === orderId_);
+          const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
           prevUserSellOrders[maker].splice(index, 1);
           return prevUserSellOrders
         });
       });
-
-      return () => {
-        dexBookContractRead.removeAllListeners();
-      };
     }
 
     bootstrapDexBook();
@@ -491,10 +513,16 @@ export default function Home() {
   return (
     <div className={styles.myApp}>
       <nav className={styles.navbar}>
+        <NavbarButton onClick={() => {}} label={tokenASymbol + "faucet"} width="8%" marginLeft="0.5em"> </NavbarButton>
+        <NavbarButton onClick={() => {}} label={tokenBSymbol + "faucet"} width="8%"> </NavbarButton>
         <h1>DexBook</h1>
-        {account
-          ? (<Button animated="false" style={{ position: "absolute", right: "0.5em", top: "0.5em", backgroundColor: "#282828" }}>{account.slice(0, 6)}...{account.slice(-4)}</Button>)
-          : (<Button style={{ position: "absolute", right: "0.5em", top: "0.5em", backgroundColor: "#282828" }} onClick={connectToMetaMask}>Connect Wallet</Button>)}
+        {account ? (
+          <NavbarButton onClick={() => {}} label={account.slice(0, 6) + "..." + account.slice(-4)} width="16%">
+          </NavbarButton>
+        ) : (
+          <NavbarButton onClick={connectToMetaMask} label="Connect Wallet" width="16%">
+          </NavbarButton>
+        )}
       </nav>
       <div className={styles.container}>
         <div className={styles.column}>
@@ -550,29 +578,28 @@ export default function Home() {
           </div>
           <div className={styles.fortyPercentLine}>
             <div className={styles.switchContainer}>
-              <Button size="xs" style={isLimitClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleLimitClick}>Limit</Button>
-              <Button size="xs" style={isMarketClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleMarketClick}>Market</Button>
+              <LimitMarketButton isClicked={isLimitClicked} onClick={handleLimitClick} label="Limit" bgColor="green" width="15%"></LimitMarketButton>
+              <LimitMarketButton isClicked={isMarketClicked} onClick={handleMarketClick} label="Market" bgColor="green" width="15%"></LimitMarketButton>
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setBuyPrice(e.target.value)} color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} labelPlaceholder="price" css={isLimitClicked ? { $$inputColor: "#525257" } : { $$inputColor: "grey" }} />
+                <PriceInput isLimitClicked={isLimitClicked} setPrice={setBuyPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} ></PriceInput>
               </div>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setSellPrice(e.target.value)} color="white" width="100%" disabled={isMarketClicked} labelRight={tokenBSymbol} labelPlaceholder="price" css={isLimitClicked ? { $$inputColor: "#525257" } : { $$inputColor: "grey" }} />
+                <PriceInput isLimitClicked={isLimitClicked} setPrice={setSellPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} ></PriceInput>
               </div>
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setBuyAmount(e.target.value)} color="white" width="100%" labelPlaceholder="amount" labelRight={isLimitClicked ? tokenASymbol : tokenBSymbol} css={{ $$inputColor: "#525257" }} />
-
+                <AmountInput setAmount={setBuyAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy="true"> </AmountInput>
               </div>
               <div className={styles.menuItem}>
-                <Input onChange={(e) => setSellAmount(e.target.value)} color="white" width="100%" labelPlaceholder="amount" labelRight={tokenASymbol} css={{ $$inputColor: "#525257" }} />
+                <AmountInput setAmount={setSellAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy="false"> </AmountInput>
               </div>
             </div>
             <div className={styles.buttonContainer}>
-              <Button onClick={isLimitClicked ? placeBuyLimitOrder : placeBuyMarketOrder} style={buyButton}>Buy ETH</Button>
-              <Button onClick={isLimitClicked ? placeSellLimitOrder : placeSellMarketOrder} style={sellButton}>Sell ETH</Button>
+              <BuySellButton onClick={isLimitClicked ? placeBuyLimitOrder : placeBuyMarketOrder} color={buyColor} label="Buy ETH"></BuySellButton>
+              <BuySellButton onClick={isLimitClicked ? placeSellLimitOrder : placeSellMarketOrder} color={sellColor} label="Sell ETH"></BuySellButton>
             </div>
           </div>
         </div>
@@ -600,8 +627,8 @@ export default function Home() {
           <div className={styles.halfLine}>
 
             <div className={styles.myOrdersSwitchContainer}>
-              <Button size="xs" style={isBuyOrdersClicked ? { ...switchButton, backgroundColor: 'green' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleBuyOrdersClick}>Buy Orders</Button>
-              <Button size="xs" style={isSellOrdersClicked ? { ...switchButton, backgroundColor: 'red' } : { ...switchButton, backgroundColor: '#525257' }} onClick={handleSellOrdersClick}>Sell Orders</Button>
+              <LimitMarketButton onClick={handleBuyOrdersClick} isClicked={isBuyOrdersClicked} label="Buy" bgColor={buyColor} width="30%"></LimitMarketButton>
+              <LimitMarketButton onClick={handleSellOrdersClick} isClicked={isSellOrdersClicked} label="Sell" bgColor={sellColor} width="30%"></LimitMarketButton>
             </div>
 
             {!showPopup && (<table className="my-order-table">
