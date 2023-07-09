@@ -22,7 +22,7 @@ export default function Home() {
   const dexBookAbi = require("../contracts/DexBook.json").abi;
   const tokenAabi = require("../contracts/USDC.json").abi;
   const tokenBabi = require("../contracts/WETH.json").abi;
-  const rpcUrl = "https://erpc.apothem.network"
+  const rpcUrl = "https://apothem.xdcrpc.com"
 
   const [isMarketClicked, setMarketClicked] = useState(false);
   const [isLimitClicked, setLimitClicked] = useState(true);
@@ -72,14 +72,12 @@ export default function Home() {
   const buyColor = "green"
   const sellColor = "red"
 
-  const [dexBookAddress, setDexBookAddress] = useState("0xf662401732456C56fbB803913D3868b20eF5e61A");
+  const [dexBookAddress, setDexBookAddress] = useState("0x49d4FdddC5d3ab687C4Ec08Ec0873D996cC3C1aF");
 
   const dexbooks = [
-    "0xf662401732456C56fbB803913D3868b20eF5e61A",
-    "0x78E3a43c3046D9b6f4D6Ace3983Ac6319916c3f9",
-    "0x48ad0c550C7a1341798cD91Fb354852FCE480f68",
-    "0x365a60364D1563651191a53616504DAd20238697",
-    "0x26291B990A9D7581318cdaC0a42237751AF0C279"
+    "0x49d4FdddC5d3ab687C4Ec08Ec0873D996cC3C1aF",
+    "0xF76f61E5D9B31eeA4eD45A87c185d3f3dcF66497",
+    "0x2e597EA0258E087442E89581dD4C0Dc45BE1Ef9A"
   ];
 
   const handleMarketClick = () => {
@@ -360,8 +358,8 @@ export default function Home() {
       setUserBuyOrders(userBuyOrdersComputed);
       setUserBuyOrdersLoading(false);
 
-      const buyEvents = await dexBookContractRead.queryFilter("BuyMarketOrderFilled");
-      const sellEvents = await dexBookContractRead.queryFilter("SellMarketOrderFilled");
+      const buyEvents = await dexBookContractRead.queryFilter("BuyMarketOrderFilled", 51488784);
+      const sellEvents = await dexBookContractRead.queryFilter("SellMarketOrderFilled", 51488784);
       const marketOrdersRead = [...buyEvents, ...sellEvents].sort((a, b) => a.args.timestamp - b.args.timestamp);
 
       const mostRecentBuyPrice = buyEvents.length == 0 ? 0 : buyEvents[buyEvents.length - 1].args.price / pricePrecisionRead;
@@ -378,15 +376,16 @@ export default function Home() {
       setPriceGraphLoading(false);
 
       let pairsRead = [];
-      dexbooks.forEach(async (dexBookPairAddress) => {
+      for (const dexBookPairAddress of dexbooks) {
+        if (dexBookPairAddress === dexBookAddress) continue;
         const dexBookPair = new ethers.Contract(dexBookPairAddress, dexBookAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
         const tokenAPair = new ethers.Contract(await dexBookPair.tokenA(), tokenAabi, new ethers.providers.JsonRpcProvider(rpcUrl));
         const tokenBPair = new ethers.Contract(await dexBookPair.tokenB(), tokenAabi, new ethers.providers.JsonRpcProvider(rpcUrl));
         const tokenASymbolPair = await tokenAPair.symbol();
         const tokenBSymbolPair = await tokenBPair.symbol();
 
-        const buyEvents = await dexBookPair.queryFilter("BuyMarketOrderFilled");
-        const sellEvents = await dexBookPair.queryFilter("SellMarketOrderFilled");
+        const buyEvents = await dexBookPair.queryFilter("BuyMarketOrderFilled", 51488784);
+        const sellEvents = await dexBookPair.queryFilter("SellMarketOrderFilled", 51488784);
 
         const mostRecentBuyPrice = buyEvents.length == 0 ? 0 : buyEvents[buyEvents.length - 1].args.price / pricePrecisionRead;
         const mostRecentSellPrice = sellEvents.length == 0 ? 0 : sellEvents[sellEvents.length - 1].args.price / pricePrecisionRead;
@@ -398,11 +397,12 @@ export default function Home() {
         const sellEvent24hAgo = sellEvents.length > 0 && sellEvents.find(event => event.args.timestamp > (Date.now() / 1000 - 86400)) || sellEvents[0];
         const sellPrice24hAgo = sellEvent24hAgo ? Number(sellEvent24hAgo.args.price / pricePrecisionRead).toFixed(3) : 0;
 
-        const pairPrice24hAgo = buyEvent24hAgo && sellEvent24hAgo ? buyEvent24hAgo.blockNumber <= sellEvent24hAgo.blockNumber ? buyPrice24hAgo : sellPrice24hAgo : buyPrice24hAgo || sellPrice24hAgo;
-        const pairPrice24hChange = pairPrice24hAgo ? Number((pricePair - pairPrice24hAgo) / pairPrice24hAgo * 100).toFixed(3) + " %" : "N/A";
+        const pairPrice24hAgo = buyEvent24hAgo && sellEvent24hAgo ? buyEvent24hAgo.blockNumber < sellEvent24hAgo.blockNumber ? buyPrice24hAgo : sellPrice24hAgo : buyPrice24hAgo || sellPrice24hAgo;
+        const pairPrice24hChange = pairPrice24hAgo ? Number((pricePair - pairPrice24hAgo) / pairPrice24hAgo * 100).toFixed(3) : 0;
 
         pairsRead.push({ address: dexBookPairAddress, pair: tokenASymbolPair + "/" + tokenBSymbolPair, change: pairPrice24hChange, price: pricePair.toFixed(3)});
-      });
+        console.log(dexBookPairAddress);
+      };
       setPairs(pairsRead);
       setPairsLoading(false);
 
@@ -737,7 +737,7 @@ export default function Home() {
                     <tr key={pair.address} onClick={() => setDexBookAddress(pair.address)}>
                       <td>{pair.pair}</td>
                       <td >{pair.price}</td>
-                      <td style={{ color: pair.change === "N/A" ? "rgb(161, 161, 161)" : pair.change > 0 ? buyColor : sellColor}}>{pair.change}</td>
+                      <td style={{ color: pair.change == 0 ? "rgb(161, 161, 161)" : pair.change > 0 ? buyColor : sellColor}}>{pair.change + " %"}</td>
                     </tr>)
                 )))}
               </tbody>
