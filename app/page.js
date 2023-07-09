@@ -737,7 +737,7 @@ export default function Home() {
                     <tr key={pair.address} onClick={() => setDexBookAddress(pair.address)}>
                       <td>{pair.pair}</td>
                       <td >{pair.price}</td>
-                      <td style={{ color: pair.change === "N/A" ? "rgb(161, 161, 161)" : pair.price > 0 ? buyColor : sellColor}}>{pair.change}</td>
+                      <td style={{ color: pair.change === "N/A" ? "rgb(161, 161, 161)" : pair.change > 0 ? buyColor : sellColor}}>{pair.change}</td>
                     </tr>)
                 )))}
               </tbody>
