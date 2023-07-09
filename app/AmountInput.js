@@ -1,6 +1,7 @@
 import React from "react";
+import { Loading } from '@nextui-org/react';
 
-const AmountInput = ({ setAmount, isMarketClicked, tokenASymbol, tokenBSymbol, isBuy, value }) => {
+const AmountInput = ({ setAmount, isMarketClicked, tokenASymbol, tokenBSymbol, isBuy, value, isLoading }) => {
   return (
     <div
       style={{
@@ -28,7 +29,8 @@ const AmountInput = ({ setAmount, isMarketClicked, tokenASymbol, tokenBSymbol, i
         }}
         value= {value}
       />
-      <span style={{ marginRight: "0.3em", color: "#ababab", fontWeight: "bold", fontFamily: "'Montserrat', sans-serif" }}>{isBuy && isMarketClicked ? tokenBSymbol : tokenASymbol}</span>
+      {isLoading && (<Loading color="grey" style={{ marginRight: "0.3em" }} css={{ $$loadingColor: "grey" }}/>)}
+      {!isLoading && (<span style={{ marginRight: "0.3em", color: "#ababab", fontWeight: "bold", fontFamily: "'Montserrat', sans-serif" }}>{isBuy && isMarketClicked ? tokenBSymbol : tokenASymbol}</span>)}
     </div>
   );
 };

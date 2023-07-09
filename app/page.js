@@ -10,20 +10,16 @@ import AmountInput from './AmountInput';
 import BuySellButton from './BuySellButton';
 import LimitMarketButton from './LimitMarketButton';
 import NavbarButton from './NavbarButton';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPenToSquare } from "@fortawesome/free-solid-svg-icons";
+import { Loading } from '@nextui-org/react';
 import moment from 'moment';
 
 
 import styles from './page.module.css'
-import { Button } from "@nextui-org/react";
-import { Input } from "@nextui-org/react";
 import { ethers } from 'ethers';
 import Web3 from 'web3';
 
 export default function Home() {
   const dexBookAbi = require("../contracts/DexBook.json").abi;
-  const dexBookAddress = "0xAD6fE09A9191556a5ECF1D0e0ca1AC6b20944B49";
   const tokenAabi = require("../contracts/USDC.json").abi;
   const tokenBabi = require("../contracts/WETH.json").abi;
   const rpcUrl = "https://erpc.apothem.network"
@@ -62,16 +58,28 @@ export default function Home() {
   const [popupPrice, setPopupPrice] = useState(0);
   const [popupAmount, setPopupAmount] = useState(0);
 
-  const [tokenABalance, setTokenABalance] = useState(0);
-  const [tokenBBalance, setTokenBBalance] = useState(0);
+  const [pairs, setPairs] = useState([]);
+
+  const [sellOrdersLoading, setSellOrdersLoading] = useState(true);
+  const [buyOrdersLoading, setBuyOrdersLoading] = useState(true);
+  const [userSellOrdersLoading, setUserSellOrdersLoading] = useState(true);
+  const [userBuyOrdersLoading, setUserBuyOrdersLoading] = useState(true);
+  const [tokenSymbolsLoading, setTokenSymbolsLoading] = useState(true);
+  const [priceLoading, setPriceLoading] = useState(true);
+  const [pairsLoading, setPairsLoading] = useState(true);
+  const [priceGraphLoading, setPriceGraphLoading] = useState(true);
 
   const buyColor = "green"
   const sellColor = "red"
 
-  const pairs = [
-    { id: 1, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
-    { id: 2, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
-    { id: 3, pair: "WETH/USDC", price: 1750.20, change: 0.05 },
+  const [dexBookAddress, setDexBookAddress] = useState("0xf662401732456C56fbB803913D3868b20eF5e61A");
+
+  const dexbooks = [
+    "0xf662401732456C56fbB803913D3868b20eF5e61A",
+    "0x78E3a43c3046D9b6f4D6Ace3983Ac6319916c3f9",
+    "0x48ad0c550C7a1341798cD91Fb354852FCE480f68",
+    "0x365a60364D1563651191a53616504DAd20238697",
+    "0x26291B990A9D7581318cdaC0a42237751AF0C279"
   ];
 
   const handleMarketClick = () => {
@@ -101,8 +109,8 @@ export default function Home() {
   const handleRowClick = (order) => {
     setSelectedRow(order);
     setShowPopup(true);
-    setPopupPrice(order.price);
-    setPopupAmount(order.amount);
+    setPopupPrice(order.price.toFixed(4));
+    setPopupAmount(order.amount.toFixed(4));
   };
 
   const handleSave = async () => {
@@ -267,7 +275,7 @@ export default function Home() {
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
       const tokenAContractWrite = new ethers.Contract(tokenA.address, tokenAabi, signer);
       await tokenAContractWrite.faucet();
-    } catch (error) {console.log(error)}
+    } catch (error) { console.log(error) }
   }
 
   async function tokenBFaucet() {
@@ -275,11 +283,20 @@ export default function Home() {
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
       const tokenBContractWrite = new ethers.Contract(tokenB.address, tokenBabi, signer);
       await tokenBContractWrite.faucet();
-    } catch (error) {console.log(error)}
+    } catch (error) { console.log(error) }
   }
 
   useEffect(() => {
     const bootstrapDexBook = async () => {
+      setSellOrdersLoading(true);
+      setBuyOrdersLoading(true);
+      setUserSellOrdersLoading(true);
+      setUserBuyOrdersLoading(true);
+      setTokenSymbolsLoading(true);
+      setPriceLoading(true);
+      setPairsLoading(true);
+      setPriceGraphLoading(true);
+
       const dexBookContractRead = new ethers.Contract(dexBookAddress, dexBookAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
       setDexBookRead(dexBookContractRead);
       const pricePrecisionRead = await dexBookContractRead.pricePrecision();
@@ -294,6 +311,7 @@ export default function Home() {
       setTokenBDecimalsFactor(tokenBDecimalsFactorRead);
       setTokenASymbol(await tokenARead.symbol());
       setTokenBSymbol(await tokenBRead.symbol());
+      setTokenSymbolsLoading(false);
 
       const sellOrdersRead = await dexBookContractRead.sellOrdersAndPrices();
       let sellOrdersComputed = [];
@@ -314,7 +332,9 @@ export default function Home() {
         sellOrdersComputed.push({ price: price, amount: accumulatedAmount, total: accumulatedCost });
       }
       setSellOrders(sellOrdersComputed);
+      setSellOrdersLoading(false);
       setUserSellOrders(userSellOrdersComputed);
+      setUserSellOrdersLoading(false);
 
       const buyOrdersRead = await dexBookContractRead.buyOrdersAndPrices();
       let buyOrdersComputed = [];
@@ -336,7 +356,9 @@ export default function Home() {
         buyOrdersComputed.push({ price: price, amount: accumulatedAmount, total: accumulatedCost });
       }
       setBuyOrders(buyOrdersComputed);
+      setBuyOrdersLoading(false);
       setUserBuyOrders(userBuyOrdersComputed);
+      setUserBuyOrdersLoading(false);
 
       const buyEvents = await dexBookContractRead.queryFilter("BuyMarketOrderFilled");
       const sellEvents = await dexBookContractRead.queryFilter("SellMarketOrderFilled");
@@ -347,11 +369,42 @@ export default function Home() {
       const isSellTheMostRecentPrice = sellEvents.length > 0 && (buyEvents.length === 0 || sellEvents[sellEvents.length - 1].blockNumber > buyEvents[buyEvents.length - 1].blockNumber);
       setPrice(isSellTheMostRecentPrice ? mostRecentSellPrice : mostRecentBuyPrice);
       setPriceColor(isSellTheMostRecentPrice ? sellColor : buyColor);
+      setPriceLoading(false);
 
       const chartLabelsComputed = marketOrdersRead.map(order => moment(new Date(Number(order.args.timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss"));
       const chartDataComputed = marketOrdersRead.map(order => Number(order.args.price) / Number(pricePrecisionRead));
       setChartData(chartDataComputed);
       setChartLabels(chartLabelsComputed);
+      setPriceGraphLoading(false);
+
+      let pairsRead = [];
+      dexbooks.forEach(async (dexBookPairAddress) => {
+        const dexBookPair = new ethers.Contract(dexBookPairAddress, dexBookAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
+        const tokenAPair = new ethers.Contract(await dexBookPair.tokenA(), tokenAabi, new ethers.providers.JsonRpcProvider(rpcUrl));
+        const tokenBPair = new ethers.Contract(await dexBookPair.tokenB(), tokenAabi, new ethers.providers.JsonRpcProvider(rpcUrl));
+        const tokenASymbolPair = await tokenAPair.symbol();
+        const tokenBSymbolPair = await tokenBPair.symbol();
+
+        const buyEvents = await dexBookPair.queryFilter("BuyMarketOrderFilled");
+        const sellEvents = await dexBookPair.queryFilter("SellMarketOrderFilled");
+
+        const mostRecentBuyPrice = buyEvents.length == 0 ? 0 : buyEvents[buyEvents.length - 1].args.price / pricePrecisionRead;
+        const mostRecentSellPrice = sellEvents.length == 0 ? 0 : sellEvents[sellEvents.length - 1].args.price / pricePrecisionRead;
+        const isSellTheMostRecentPrice = sellEvents.length > 0 && (buyEvents.length === 0 || sellEvents[sellEvents.length - 1].blockNumber > buyEvents[buyEvents.length - 1].blockNumber);
+        const pricePair = isSellTheMostRecentPrice ? mostRecentSellPrice : mostRecentBuyPrice;
+
+        const buyEvent24hAgo = buyEvents.length > 0 && buyEvents.find(event => event.args.timestamp > (Date.now() / 1000 - 86400)) || buyEvents[0];
+        const buyPrice24hAgo = buyEvent24hAgo ? buyEvent24hAgo.args.price / pricePrecisionRead : 0;
+        const sellEvent24hAgo = sellEvents.length > 0 && sellEvents.find(event => event.args.timestamp > (Date.now() / 1000 - 86400)) || sellEvents[0];
+        const sellPrice24hAgo = sellEvent24hAgo ? Number(sellEvent24hAgo.args.price / pricePrecisionRead).toFixed(3) : 0;
+
+        const pairPrice24hAgo = buyEvent24hAgo && sellEvent24hAgo ? buyEvent24hAgo.blockNumber <= sellEvent24hAgo.blockNumber ? buyPrice24hAgo : sellPrice24hAgo : buyPrice24hAgo || sellPrice24hAgo;
+        const pairPrice24hChange = pairPrice24hAgo ? Number((pricePair - pairPrice24hAgo) / pairPrice24hAgo * 100).toFixed(3) + " %" : "N/A";
+
+        pairsRead.push({ address: dexBookPairAddress, pair: tokenASymbolPair + "/" + tokenBSymbolPair, change: pairPrice24hChange, price: pricePair.toFixed(3)});
+      });
+      setPairs(pairsRead);
+      setPairsLoading(false);
 
       dexBookContractRead.removeAllListeners();
 
@@ -559,23 +612,25 @@ export default function Home() {
         setUserSellOrders(prevUserSellOrders => {
           const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId);
           prevUserSellOrders[maker][index].amount = amountComputed;
-          prevUserSellOrders[maker][index].total = totalComputed;   
+          prevUserSellOrders[maker][index].total = totalComputed;
           return prevUserSellOrders;
         });
       });
     }
 
     bootstrapDexBook();
-  }, []);
+  }, [dexBookAddress]);
 
   return (
-    <div className={styles.myApp}>
+      <div className={styles.myApp}>
       <nav className={styles.navbar}>
-        <NavbarButton onClick={tokenAFaucet} label={tokenASymbol + " Faucet"} width="8%" marginLeft="0.5em"> </NavbarButton>
-        <NavbarButton onClick={tokenBFaucet} label={tokenBSymbol + " Faucet"} width="8%"> </NavbarButton>
+        {!tokenSymbolsLoading && (<NavbarButton onClick={tokenAFaucet} label={tokenASymbol + " Faucet"} width="8%" marginLeft="0.5em"> </NavbarButton>)}
+        {tokenSymbolsLoading && (<Loading style = {{marginLeft: "3%"}} css={{$$loadingColor: "grey"}}></Loading>)}
+        {!tokenSymbolsLoading && (<NavbarButton onClick={tokenBFaucet} label={tokenBSymbol + " Faucet"} width="8%"> </NavbarButton>)}
+        {tokenSymbolsLoading && (<Loading style = {{marginLeft: "6%"}} css={{$$loadingColor: "grey"}}></Loading>)}
         <h1>DexBook</h1>
         {account ? (
-          <NavbarButton onClick={() => {}} label={account.slice(0, 6) + "..." + account.slice(-4)} width="16%">
+          <NavbarButton onClick={() => { }} label={account.slice(0, 6) + "..." + account.slice(-4)} width="16%">
           </NavbarButton>
         ) : (
           <NavbarButton onClick={connectToMetaMask} label="Connect Wallet" width="16%">
@@ -585,7 +640,8 @@ export default function Home() {
       <div className={styles.container}>
         <div className={styles.column}>
           <div className={styles.fortyFivePercentLine}>
-            <table className="order-table">
+            {sellOrdersLoading && (<Loading style={{position: "relative", left: "42%"}} css={{ $$loadingColor: "grey" }}></Loading>)}
+            {!sellOrdersLoading && (<table className="order-table">
               <thead>
                 <tr>
                   <th>Price ({tokenBSymbol})</th>
@@ -602,15 +658,17 @@ export default function Home() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table>)}
           </div>
           <div className={styles.tenPercentLine}>
-            <div style={{ color: priceColor }}>
+            {priceLoading && (<Loading css={{ $$loadingColor: "grey" }}></Loading>)}
+            {!priceLoading && <div style={{ color: priceColor }}>
               {price?.toFixed(4)}
-            </div>
+            </div>}
           </div>
           <div className={styles.fortyFivePercentLine}>
-            <table className="order-table">
+          {buyOrdersLoading && (<Loading style={{position: "relative", left: "42%"}} css={{ $$loadingColor: "grey" }}></Loading>)}
+            {!buyOrdersLoading && (<table className="order-table">
               <thead>
                 <tr>
                   <th>Price ({tokenBSymbol})</th>
@@ -627,12 +685,13 @@ export default function Home() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table>)}
           </div>
         </div>
         <div className={styles.column}>
           <div className={styles.sixtyPercentLine}>
-            <PriceChart chartLabels={chartLabels} chartData={chartData}></PriceChart>
+            {priceGraphLoading && (<Loading style={{position: "relative", left: "49%"}} css={{ $$loadingColor: "grey" }}></Loading>)}
+            {!priceGraphLoading && (<PriceChart chartLabels={chartLabels} chartData={chartData}></PriceChart>)}
           </div>
           <div className={styles.fortyPercentLine}>
             <div className={styles.switchContainer}>
@@ -641,23 +700,23 @@ export default function Home() {
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <PriceInput isLimitClicked={isLimitClicked} setPrice={setBuyPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} ></PriceInput>
+                <PriceInput isLimitClicked={isLimitClicked} setPrice={setBuyPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol}  isLoading={tokenSymbolsLoading}></PriceInput>
               </div>
               <div className={styles.menuItem}>
-                <PriceInput isLimitClicked={isLimitClicked} setPrice={setSellPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} ></PriceInput>
+                <PriceInput isLimitClicked={isLimitClicked} setPrice={setSellPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} isLoading={tokenSymbolsLoading}></PriceInput>
               </div>
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <AmountInput setAmount={setBuyAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy={true}> </AmountInput>
+                <AmountInput setAmount={setBuyAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy={true} isLoading={tokenSymbolsLoading}> </AmountInput>
               </div>
               <div className={styles.menuItem}>
-                <AmountInput setAmount={setSellAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy={false}> </AmountInput>
+                <AmountInput setAmount={setSellAmount} isMarketClicked={isMarketClicked} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} isBuy={false} isLoading={tokenSymbolsLoading}> </AmountInput>
               </div>
             </div>
             <div className={styles.buttonContainer}>
-              <BuySellButton onClick={isLimitClicked ? placeBuyLimitOrder : placeBuyMarketOrder} color={buyColor} label="Buy ETH"></BuySellButton>
-              <BuySellButton onClick={isLimitClicked ? placeSellLimitOrder : placeSellMarketOrder} color={sellColor} label="Sell ETH"></BuySellButton>
+              <BuySellButton onClick={isLimitClicked ? placeBuyLimitOrder : placeBuyMarketOrder} color={buyColor} label={"Buy " + tokenASymbol} isLoading={tokenSymbolsLoading}></BuySellButton>
+              <BuySellButton onClick={isLimitClicked ? placeSellLimitOrder : placeSellMarketOrder} color={sellColor} label={"Sell " + tokenASymbol} isLoading={tokenSymbolsLoading}></BuySellButton>
             </div>
           </div>
         </div>
@@ -666,30 +725,31 @@ export default function Home() {
             <table className="order-table">
               <thead>
                 <tr>
-                  <th>Pair ({tokenBSymbol})</th>
-                  <th>Price ({tokenASymbol})</th>
+                  <th>Pair</th>
+                  <th>Price</th>
                   <th>Change</th>
                 </tr>
               </thead>
               <tbody>
-                {pairs && pairs.length && pairs.map((pair) => (
-                  <tr key={pair.id}>
-                    <td>{pair.pair}</td>
-                    <td>{pair.price}</td>
-                    <td>{pair.change}</td>
-                  </tr>
-                ))}
+              {pairsLoading && (<Loading style={{position: "relative", left: "42%"}} css={{ $$loadingColor: "grey" }}></Loading>)}
+                {!pairsLoading && (pairs.map((pair) => (
+                  pair.address !== dexBookAddress && (
+                    <tr key={pair.address} onClick={() => setDexBookAddress(pair.address)}>
+                      <td>{pair.pair}</td>
+                      <td >{pair.price}</td>
+                      <td style={{ color: pair.change === "N/A" ? "rgb(161, 161, 161)" : pair.price > 0 ? buyColor : sellColor}}>{pair.change}</td>
+                    </tr>)
+                )))}
               </tbody>
             </table>
           </div>
           <div className={styles.halfLine}>
-
             <div className={styles.myOrdersSwitchContainer}>
               <LimitMarketButton onClick={handleBuyOrdersClick} isClicked={isBuyOrdersClicked} label="Buy" bgColor={buyColor} width="30%"></LimitMarketButton>
               <LimitMarketButton onClick={handleSellOrdersClick} isClicked={isSellOrdersClicked} label="Sell" bgColor={sellColor} width="30%"></LimitMarketButton>
             </div>
-
-            {!showPopup && (<table className="my-order-table">
+            {account && (userSellOrdersLoading || userBuyOrdersLoading) && (<Loading style={{position: "relative", left: "42%"}} css={{ $$loadingColor: "grey" }}></Loading>)}
+            {!showPopup && !userSellOrdersLoading && !userBuyOrdersLoading && (<table className="my-order-table">
               <thead>
                 <tr>
                   <th>Price ({tokenBSymbol})</th>
@@ -700,17 +760,17 @@ export default function Home() {
               </thead>
               <tbody>
                 {account && isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 && userSellOrders[account].map((order) => (
-                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
+                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)} style={{cursor: "pointer"}}>
                     <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
                     <td>{to4decimals(order.amount)}</td>
-                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "5%" }} /></td>
+                    <td>{to4decimals(order.total)}</td>
                   </tr>
                 ))}
                 {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
                   <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
                     <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
                     <td>{to4decimals(order.amount)}</td>
-                    <td>{to4decimals(order.total)} <FontAwesomeIcon icon={faPenToSquare} style={{ position: "absolute", right: "5%" }} /></td>
+                    <td>{to4decimals(order.total)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -718,20 +778,20 @@ export default function Home() {
             )}
             {showPopup && selectedRow && (
               <div className="popup">
-              <div style={{height: "15%"}}>
-                <PriceInput isLimitClicked={true} setPrice={setPopupPrice} isMarketClicked={false} tokenSymbol={tokenBSymbol} value={popupPrice}></PriceInput>
+                <div style={{ height: "15%" }}>
+                  <PriceInput isLimitClicked={true} setPrice={setPopupPrice} isMarketClicked={false} tokenSymbol={tokenBSymbol} value={popupPrice}></PriceInput>
+                </div>
+                <div style={{ height: "15%", marginTop: "1em" }}>
+                  <AmountInput setAmount={setPopupAmount} isMarketClicked={false} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} value={popupAmount}> </AmountInput>
+                </div>
+                <div className="popup-button-container">
+                  <BuySellButton onClick={handleSave} color="white" label="Edit"></BuySellButton>
+                  <BuySellButton onClick={handleRemove} color="white" label="Remove"></BuySellButton>
+                </div>
+                <div className="popup-button-cancel">
+                  <BuySellButton onClick={handleCancel} color="white" label="Cancel"></BuySellButton>
+                </div>
               </div>
-              <div style={{height: "15%", marginTop: "1em"}}>
-                <AmountInput setAmount={setPopupAmount} isMarketClicked={false} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} value={popupAmount}> </AmountInput>
-              </div>
-              <div className="popup-button-container">
-                <BuySellButton onClick={handleSave} color="white" label="Edit"></BuySellButton>
-                <BuySellButton onClick={handleRemove} color="white" label="Remove"></BuySellButton>
-              </div>
-              <div className="popup-button-cancel">
-                <BuySellButton onClick={handleCancel} color="white" label="Cancel"></BuySellButton>
-              </div>
-            </div>
             )}
           </div>
         </div>

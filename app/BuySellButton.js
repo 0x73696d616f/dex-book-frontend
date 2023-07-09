@@ -1,6 +1,7 @@
 import React from "react";
+import { Loading } from '@nextui-org/react';
 
-const BuySellButton = ({ onClick, color, label }) => {
+const BuySellButton = ({ onClick, color, label, isLoading }) => {
   const handleClick = () => {
     if (onClick) {
       onClick();
@@ -8,6 +9,7 @@ const BuySellButton = ({ onClick, color, label }) => {
   };
 
   return (
+    isLoading ? <Loading color="grey" style={{ width: "100%" }} css={{ $$loadingColor: "grey" }}/> :
     <button
       onClick={handleClick}
       style={{
