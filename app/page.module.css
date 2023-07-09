@@ -11,11 +11,33 @@
   .container {
     grid-template-columns: 25% 50% 25%;
   }
+  .navbar h1 {
+    font-size: 1.5em;
+    color: #fff;
+    text-align: center; /* Center the text */
+    display: flex; /* Add flex display */
+    align-items: center; /* Vertically center the text */
+    justify-content: center; /* Horizontally center the text */
+    flex:1 0 auto;
+    margin-top: 0.5em;
+  }
 }
 
 @media (max-width: 767px) {
   .container {
     grid-template-columns: 1fr;
+    height: calc(500vh - 10vh);
+  }
+
+  .navbar h1 {
+    font-size: 1em;
+    color: #fff;
+    text-align: center; /* Center the text */
+    display: flex; /* Add flex display */
+    align-items: center; /* Vertically center the text */
+    justify-content: center; /* Horizontally center the text */
+    flex:1 0 auto;
+    margin-top: 0.5em;
   }
 }
 
@@ -81,17 +103,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.navbar h1 {
-  font-size: 1.5em;
-  color: #fff;
-  text-align: center; /* Center the text */
-  display: flex; /* Add flex display */
-  align-items: center; /* Vertically center the text */
-  justify-content: center; /* Horizontally center the text */
-  flex:1 0 auto;
-  margin-top: 0.5em;
 }
 
 .buttonContainer {
