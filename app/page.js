@@ -10,6 +10,7 @@ import AmountInput from './AmountInput';
 import BuySellButton from './BuySellButton';
 import LimitMarketButton from './LimitMarketButton';
 import NavbarButton from './NavbarButton';
+import NavbarLabel from './NavbarLabel';
 import { Loading } from '@nextui-org/react';
 import moment from 'moment';
 
@@ -69,15 +70,18 @@ export default function Home() {
   const [pairsLoading, setPairsLoading] = useState(true);
   const [priceGraphLoading, setPriceGraphLoading] = useState(true);
 
+  const [tokenABalance, setTokenABalance] = useState(0);
+  const [tokenBBalance, setTokenBBalance] = useState(0);
+
   const buyColor = "green"
   const sellColor = "red"
 
-  const [dexBookAddress, setDexBookAddress] = useState("0x49d4FdddC5d3ab687C4Ec08Ec0873D996cC3C1aF");
+  const [dexBookAddress, setDexBookAddress] = useState("0x8734c402782382E6eC48638Fc64A11C4DCcdDce1");
 
   const dexbooks = [
-    "0x49d4FdddC5d3ab687C4Ec08Ec0873D996cC3C1aF",
-    "0xF76f61E5D9B31eeA4eD45A87c185d3f3dcF66497",
-    "0x2e597EA0258E087442E89581dD4C0Dc45BE1Ef9A"
+    "0x8734c402782382E6eC48638Fc64A11C4DCcdDce1",
+    "0xE002bc2Eab8dE575a372D13eD5ABAAb206ABb0ba",
+    "0xC74D816A74232C800E698FEFA053AE5126C069A8"
   ];
 
   const handleMarketClick = () => {
@@ -190,7 +194,13 @@ export default function Home() {
     await approveTokenB(signer, tokenBamountWithDecimalsFactor);
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [0], [0]);
+
+    let prevPrice = buyOrders.findLast(order => Math.round(pricePrecision / order.price) < Number(buyPriceWithPrecision));
+    let nextPrice = buyOrders.find(order => Math.round(pricePrecision / order.price) > Number(buyPriceWithPrecision));
+    prevPrice = prevPrice ? BigInt(Math.round(pricePrecision / prevPrice.price)) : 0;
+    nextPrice = nextPrice ? BigInt(Math.round(pricePrecision / nextPrice.price)) : 0;
+
+    await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [prevPrice, 0], [nextPrice, 0]);
   }
 
   async function placeSellLimitOrder() {
@@ -202,8 +212,13 @@ export default function Home() {
 
     await approveTokenA(signer, tokenAamountWithDecimalsFactor);
 
+    let prevPrice = sellOrders.findLast(order => Math.round(order.price * pricePrecision) < Number(sellPriceWithPrecision));
+    let nextPrice = sellOrders.find(order => Math.round(order.price * pricePrecision) > Number(sellPriceWithPrecision));
+    prevPrice = prevPrice ? BigInt(Math.round(prevPrice.price * pricePrecision)) : 0;
+    nextPrice = nextPrice ? BigInt(Math.round(nextPrice.price * pricePrecision)) : 0;
+
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-    await dexBookContractWrite.placeSellLimitOrder(sellAmountWithDecimalsFactor, sellPriceWithPrecision, [0], [0]);
+    await dexBookContractWrite.placeSellLimitOrder(sellAmountWithDecimalsFactor, sellPriceWithPrecision, [prevPrice, 0], [nextPrice, 0]);
   }
 
   async function placeBuyMarketOrder() {
@@ -331,6 +346,7 @@ export default function Home() {
       }
       setSellOrders(sellOrdersComputed);
       setSellOrdersLoading(false);
+      setSellPrice(sellOrdersComputed.length > 0 ? sellOrdersComputed[sellOrdersComputed.length - 1].price.toFixed(3) : 0);
       setUserSellOrders(userSellOrdersComputed);
       setUserSellOrdersLoading(false);
 
@@ -355,6 +371,7 @@ export default function Home() {
       }
       setBuyOrders(buyOrdersComputed);
       setBuyOrdersLoading(false);
+      setBuyPrice(buyOrdersComputed.length > 0 ? buyOrdersComputed[0].price.toFixed(3) : 0);
       setUserBuyOrders(userBuyOrdersComputed);
       setUserBuyOrdersLoading(false);
 
@@ -401,7 +418,6 @@ export default function Home() {
         const pairPrice24hChange = pairPrice24hAgo ? Number((pricePair - pairPrice24hAgo) / pairPrice24hAgo * 100).toFixed(3) : 0;
 
         pairsRead.push({ address: dexBookPairAddress, pair: tokenASymbolPair + "/" + tokenBSymbolPair, change: pairPrice24hChange, price: pricePair.toFixed(3)});
-        console.log(dexBookPairAddress);
       };
       setPairs(pairsRead);
       setPairsLoading(false);
@@ -621,22 +637,48 @@ export default function Home() {
     bootstrapDexBook();
   }, [dexBookAddress]);
 
+  useEffect(() => {
+    if (!account || !tokenA || !tokenB || !tokenADecimalsFactor || !tokenBDecimalsFactor) return;
+
+    const getBalances = async () => {
+      const newBalanceA = await tokenA.balanceOf(account) / tokenADecimalsFactor;
+      const newBalanceB = await tokenB.balanceOf(account) / tokenBDecimalsFactor;
+      setTokenABalance(Number(newBalanceA));
+      setTokenBBalance(Number(newBalanceB));
+    };
+
+    const interval = setInterval(() => {
+      getBalances();
+    }, 2000);
+
+    getBalances();
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [account, tokenA, tokenB, tokenADecimalsFactor, tokenBDecimalsFactor]);
+
   return (
       <div className={styles.myApp}>
-      <nav className={styles.navbar}>
-        {!tokenSymbolsLoading && (<NavbarButton onClick={tokenAFaucet} label={tokenASymbol + " Faucet"} width="8%" marginLeft="0.5em"> </NavbarButton>)}
+      <div className={styles.navbar}>
+      <div className={styles.leftSection}>
+        {!tokenSymbolsLoading && (<NavbarButton onClick={tokenAFaucet} label={tokenASymbol + " Faucet"} marginLeft="0.5em"> </NavbarButton>)}
         {tokenSymbolsLoading && (<Loading style = {{marginLeft: "3%"}} css={{$$loadingColor: "grey"}}></Loading>)}
-        {!tokenSymbolsLoading && (<NavbarButton onClick={tokenBFaucet} label={tokenBSymbol + " Faucet"} width="8%"> </NavbarButton>)}
+        {!tokenSymbolsLoading && (<NavbarButton onClick={tokenBFaucet} label={tokenBSymbol + " Faucet"}> </NavbarButton>)}
         {tokenSymbolsLoading && (<Loading style = {{marginLeft: "6%"}} css={{$$loadingColor: "grey"}}></Loading>)}
-        <h1>DexBook</h1>
+      </div>
+      <div className={styles.rightSection}>
+        <NavbarLabel label={tokenABalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenASymbol}></NavbarLabel>
+        <NavbarLabel label={tokenBBalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenBSymbol}></NavbarLabel>
         {account ? (
-          <NavbarButton onClick={() => { }} label={account.slice(0, 6) + "..." + account.slice(-4)} width="16%">
+          <NavbarButton onClick={() => { }} label={account.slice(0, 6) + "..." + account.slice(-4)}>
           </NavbarButton>
         ) : (
-          <NavbarButton onClick={connectToMetaMask} label="Connect Wallet" width="16%">
+          <NavbarButton onClick={connectToMetaMask} label="Connect Wallet">
           </NavbarButton>
         )}
-      </nav>
+        </div>
+      </div>
       <div className={styles.container}>
         <div className={styles.column}>
           <div className={styles.fortyFivePercentLine}>
@@ -700,10 +742,10 @@ export default function Home() {
             </div>
             <div className={styles.buttonContainer}>
               <div className={styles.menuItem}>
-                <PriceInput isLimitClicked={isLimitClicked} setPrice={setBuyPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol}  isLoading={tokenSymbolsLoading}></PriceInput>
+                <PriceInput isLimitClicked={isLimitClicked} setPrice={setBuyPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol}  isLoading={tokenSymbolsLoading} value={buyPrice}></PriceInput>
               </div>
               <div className={styles.menuItem}>
-                <PriceInput isLimitClicked={isLimitClicked} setPrice={setSellPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} isLoading={tokenSymbolsLoading}></PriceInput>
+                <PriceInput isLimitClicked={isLimitClicked} setPrice={setSellPrice} isMarketClicked={isMarketClicked} tokenSymbol={tokenBSymbol} isLoading={tokenSymbolsLoading} value={sellPrice}></PriceInput>
               </div>
             </div>
             <div className={styles.buttonContainer}>
@@ -715,8 +757,8 @@ export default function Home() {
               </div>
             </div>
             <div className={styles.buttonContainer}>
-              <BuySellButton onClick={isLimitClicked ? placeBuyLimitOrder : placeBuyMarketOrder} color={buyColor} label={"Buy " + tokenASymbol} isLoading={tokenSymbolsLoading}></BuySellButton>
-              <BuySellButton onClick={isLimitClicked ? placeSellLimitOrder : placeSellMarketOrder} color={sellColor} label={"Sell " + tokenASymbol} isLoading={tokenSymbolsLoading}></BuySellButton>
+              <BuySellButton onClick={isLimitClicked ? placeBuyLimitOrder : placeBuyMarketOrder} color={buyColor} label={"Buy " + tokenASymbol} isLoading={tokenSymbolsLoading} isDisabled={(!buyPrice || buyPrice == 0 && isLimitClicked) || !buyAmount || buyAmount == 0 || !account}></BuySellButton>
+              <BuySellButton onClick={isLimitClicked ? placeSellLimitOrder : placeSellMarketOrder} color={sellColor} label={"Sell " + tokenASymbol} isLoading={tokenSymbolsLoading} isDisabled={(!sellPrice || sellPrice == 0 && isLimitClicked) || !sellAmount || sellAmount == 0 || !account}></BuySellButton>
             </div>
           </div>
         </div>
@@ -785,7 +827,7 @@ export default function Home() {
                   <AmountInput setAmount={setPopupAmount} isMarketClicked={false} tokenASymbol={tokenASymbol} tokenBSymbol={tokenBSymbol} value={popupAmount}> </AmountInput>
                 </div>
                 <div className="popup-button-container">
-                  <BuySellButton onClick={handleSave} color="white" label="Edit"></BuySellButton>
+                  <BuySellButton onClick={handleSave} color="white" label="Edit" isDisabled={!popupPrice || popupPrice == 0 || !popupAmount || popupAmount == 0}></BuySellButton>
                   <BuySellButton onClick={handleRemove} color="white" label="Remove"></BuySellButton>
                 </div>
                 <div className="popup-button-cancel">

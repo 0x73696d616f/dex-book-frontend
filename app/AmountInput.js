@@ -28,6 +28,7 @@ const AmountInput = ({ setAmount, isMarketClicked, tokenASymbol, tokenBSymbol, i
           fontFamily: "'Montserrat', sans-serif"
         }}
         value= {value}
+        pattern="[0-9]*"
       />
       {isLoading && (<Loading color="grey" style={{ marginRight: "0.3em" }} css={{ $$loadingColor: "grey" }}/>)}
       {!isLoading && (<span style={{ marginRight: "0.3em", color: "#ababab", fontWeight: "bold", fontFamily: "'Montserrat', sans-serif" }}>{isBuy && isMarketClicked ? tokenBSymbol : tokenASymbol}</span>)}

@@ -4,40 +4,40 @@
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto;
-  height: calc(100vh - 5vh);
+  height: 93%;
+  box-sizing: border-box; /* Add box-sizing property */
 }
 
 @media (min-width: 768px) {
   .container {
     grid-template-columns: 25% 50% 25%;
-  }
-  .navbar h1 {
-    font-size: 1.5em;
-    color: #fff;
-    text-align: center; /* Center the text */
-    display: flex; /* Add flex display */
-    align-items: center; /* Vertically center the text */
-    justify-content: center; /* Horizontally center the text */
-    flex:1 0 auto;
-    margin-top: 0.5em;
+    height: 93%;
+    box-sizing: border-box; /* Add box-sizing property */
   }
 }
 
 @media (max-width: 767px) {
   .container {
     grid-template-columns: 1fr;
-    height: calc(500vh - 10vh);
+    height: 500%;
+    box-sizing: border-box; /* Add box-sizing property */
+  }
+  .navbar {
+    display: none; /* Hide the navbar */
   }
 
-  .navbar h1 {
-    font-size: 1em;
+  .navbar.hamburger {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 7%;
+    background-color: #202020;
     color: #fff;
-    text-align: center; /* Center the text */
-    display: flex; /* Add flex display */
-    align-items: center; /* Vertically center the text */
-    justify-content: center; /* Horizontally center the text */
-    flex:1 0 auto;
-    margin-top: 0.5em;
+  }
+  
+  .navbar.hamburger .hamburger-icon {
+    font-size: 1.5em;
+    cursor: pointer;
   }
 }
 
@@ -46,48 +46,48 @@
   flex-direction: column;
   justify-content: space-between;
   background-color: #202020; /*#282828*/
-  padding: 0.5em;
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+  margin-left: 1em;
+  margin-right: 1em;
+  box-sizing: border-box;
 }
 
 .halfLine {
-  height: 50%;
+  height: 47%;
   background-color: #282828;
   padding: 0.5em;
-  margin-bottom: 0.5em;
-  margin-top: 0.5em;
   border-radius: 1em;
+  margin-top: 0.5em;
   overflow: hidden;
 }
 
 .sixtyPercentLine {
-  height: 60%;
+  height: 50%;
+  margin-top: 0.5em;
   background-color: #282828;
   padding: 0.5em;
-  margin-bottom: 0.5em; /* Add margin between the lines */
-  margin-top: 0.5em;
   border-radius: 1em;
 }
 
 .fortyPercentLine {
   height: 40%;
   background-color: #282828;
-  padding: 0.5em;
-  margin-bottom: 0.5em; /* Add margin between the lines */
-  margin-top: 0.5em;
   border-radius: 1em;
+  padding: 0.5em;
 }
 
 .fortyFivePercentLine {
-  height: 47%;
+  height: 42%;
   background-color: #282828;
-  padding: 0.5em;
-  margin-bottom: 0.5em; /* Add margin between the lines */
   margin-top: 0.5em;
   border-radius: 1em;
+  padding: 0.5em;
 }
 
 .tenPercentLine {
   height: 6%;
+  margin-top: 0.5em;
   background-color: #282828;
   padding: 0.5em;
   border-radius: 1em;
@@ -97,12 +97,26 @@
 }
 
 .navbar {
-  background-color: #202020; /*#282828*/
+  background-color: #202020;
   color: #fff;
-  height: 5vh;
+  height: 7%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
+}
+
+.navbar .leftSection {
+  display: flex;
+  position: relative;
+  margin-left: 0.5em;
+  margin-top: 1em;
+}
+
+.navbar .rightSection {
+  display: flex;
+  position: relative;
+  margin-right: 0.5em; 
+  margin-left: auto;
+  margin-top: 1em; 
 }
 
 .buttonContainer {

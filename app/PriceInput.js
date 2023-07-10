@@ -28,6 +28,7 @@ const PriceInput = ({ isLimitClicked, setPrice, isMarketClicked, tokenSymbol, va
         }}
         value={value}
         disabled={isMarketClicked}
+        pattern="[0-9]*"
       />
       {isLoading && (<Loading color="grey" style={{ marginRight: "0.3em" }} css={{ $$loadingColor: "grey" }}/>)}
       {!isLoading && (<span style={{ marginRight: "0.3em", color: "#ababab", fontWeight: "bold", fontFamily: "'Montserrat', sans-serif" }}>{tokenSymbol}</span>)}
