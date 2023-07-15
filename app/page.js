@@ -117,8 +117,8 @@ export default function Home() {
   const handleRowClick = (order) => {
     setSelectedRow(order);
     setShowPopup(true);
-    setPopupPrice(order.price.toFixed(4));
-    setPopupAmount(order.amount.toFixed(4));
+    setPopupPrice(order.price);
+    setPopupAmount(order.amount);
   };
 
   const handleSave = async () => {
