@@ -54,8 +54,7 @@ export default function Home() {
 
   const [price, setPrice] = useState(0);
   const [priceColor, setPriceColor] = useState("grey");
-  const [chartData, setChartData] = useState([]);
-  const [chartLabels, setChartLabels] = useState([]);
+  const [chartData, setChartData] = useState({chartData: [], chartLabels: []});
 
   const [selectedRow, setSelectedRow] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
@@ -309,6 +308,9 @@ export default function Home() {
   function predictPrice(model, timestamps, prices) {
     timestamps = timestamps.map((timestamp) => new Date(timestamp).getTime());
 
+    console.log(timestamps);
+    console.log(prices);
+
     const numDays = 10;
     let pricesPast10Days = [...Array(numDays).keys()];
     let oneDay = 24 * 60 * 60 * 1000;
@@ -445,8 +447,7 @@ export default function Home() {
 
       const chartLabelsComputed = marketOrdersRead.map(order => moment(new Date(Number(order.args.timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss"));
       const chartDataComputed = marketOrdersRead.map(order => Number(order.args.price) / Number(pricePrecisionRead));
-      setChartData(chartDataComputed);
-      setChartLabels(chartLabelsComputed);
+      setChartData({chartData: chartDataComputed, chartLabels: chartLabelsComputed});
       setPriceGraphLoading(false);
 
       const nnModelRead = new ethers.Contract(nnAddress, nnAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
@@ -549,21 +550,25 @@ export default function Home() {
       dexBookContractRead.on("BuyMarketOrderFilled", async (timestamp, price, maker, amount) => {
         const newPrice = price / pricePrecisionRead;
         const newTimestamp = moment(new Date(Number(timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss");
-        if (dexBookAddress == dexbooks[2]) predictPrice(nnModel, [...chartLabels, newTimestamp], [...chartData, newPrice]);
         setPrice(newPrice);
         setPriceColor(buyColor);
-        setChartData(chartData => [...chartData, newPrice]);
-        setChartLabels(chartLabels => [...chartLabels, newTimestamp]);
+        setChartData(chartData => {
+          const newChartData = {chartData: [...chartData.chartData, newPrice], chartLabels: [...chartData.chartLabels, newTimestamp]}
+          if (dexBookAddress == dexbooks[2]) predictPrice(model, newChartData.chartLabels, newChartData.chartData);
+          return newChartData;
+        });
       });
 
       dexBookContractRead.on("SellMarketOrderFilled", async (timestamp, price, maker, amount) => {
         const newPrice = price / pricePrecisionRead;
         const newTimestamp = moment(new Date(Number(timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss");
-        if (dexBookAddress == dexbooks[2]) predictPrice(nnModel, [...chartLabels, newTimestamp], [...chartData, newPrice]);
         setPrice(newPrice);
         setPriceColor(sellColor);
-        setChartData(chartData => [...chartData, newPrice]);
-        setChartLabels(chartLabels => [...chartLabels, newTimestamp]);
+        setChartData(chartData => {
+          const newChartData = {chartData: [...chartData.chartData, newPrice], chartLabels: [...chartData.chartLabels, newTimestamp]}
+          if (dexBookAddress == dexbooks[2]) predictPrice(model, newChartData.chartLabels, newChartData.chartData);
+          return newChartData;
+        });
       });
 
       dexBookContractRead.on("BuyLimitOrderFilled", async (orderId_, price, maker, amount) => {
@@ -809,7 +814,7 @@ export default function Home() {
         <div className={styles.column}>
           <div className={styles.sixtyPercentLine}>
             {priceGraphLoading && (<Loading style={{position: "relative", left: "49%"}} css={{ $$loadingColor: "grey" }}></Loading>)}
-            {!priceGraphLoading && (<PriceChart chartLabels={chartLabels} chartData={chartData}></PriceChart>)}
+            {!priceGraphLoading && (<PriceChart chartLabels={chartData.chartLabels} chartData={chartData.chartData}></PriceChart>)}
           </div>
           <div className={styles.fortyPercentLine}>
             <div className={styles.switchContainer}>
