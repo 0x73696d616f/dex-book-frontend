@@ -13,13 +13,16 @@ import NavbarButton from './NavbarButton';
 import NavbarLabel from './NavbarLabel';
 import { Loading } from '@nextui-org/react';
 import moment from 'moment';
-
+import * as tf from '@tensorflow/tfjs'
 
 import styles from './page.module.css'
 import { ethers } from 'ethers';
 import Web3 from 'web3';
+import * as dfd from "danfojs";
+import { readCSV, DataFrame } from "danfojs"
 
 export default function Home() {
+  const nnAbi = require("../contracts/NN.json").abi;
   const dexBookAbi = require("../contracts/DexBook.json").abi;
   const tokenAabi = require("../contracts/USDC.json").abi;
   const tokenBabi = require("../contracts/WETH.json").abi;
@@ -73,16 +76,20 @@ export default function Home() {
   const [tokenABalance, setTokenABalance] = useState(0);
   const [tokenBBalance, setTokenBBalance] = useState(0);
 
-  const buyColor = "green"
-  const sellColor = "red"
+  const [nnPrice, setNNPrice] = useState(0);
+  const [nnModel, setNNModel] = useState(null);
+  const nnAddress = "0xD87D11f9832e39E4394D4118766ed9e76188e51A";
 
-  const [dexBookAddress, setDexBookAddress] = useState("0x8734c402782382E6eC48638Fc64A11C4DCcdDce1");
+  const [dexBookAddress, setDexBookAddress] = useState("0xC74D816A74232C800E698FEFA053AE5126C069A8");
 
   const dexbooks = [
     "0x8734c402782382E6eC48638Fc64A11C4DCcdDce1",
     "0xE002bc2Eab8dE575a372D13eD5ABAAb206ABb0ba",
     "0xC74D816A74232C800E698FEFA053AE5126C069A8"
   ];
+
+  const buyColor = "green"
+  const sellColor = "red"
 
   const handleMarketClick = () => {
     setMarketClicked(true);
@@ -299,6 +306,56 @@ export default function Home() {
     } catch (error) { console.log(error) }
   }
 
+  function predictPrice(model, timestamps, prices) {
+    timestamps = timestamps.map((timestamp) => new Date(timestamp).getTime());
+
+    const numDays = 10;
+    let pricesPast10Days = [...Array(numDays).keys()];
+    let oneDay = 24 * 60 * 60 * 1000;
+    let pastDay = Date.now() - oneDay;
+    let lastNonZeroPrice = 0;
+
+    for (let i = numDays - 1; i >= 0; i--) {
+      const pastDayPrices = prices.filter((prices, idx) => timestamps[idx] > pastDay && timestamps[idx] < pastDay + oneDay);
+      pricesPast10Days[i] = calculateAverage(pastDayPrices);
+      pastDay -= oneDay;
+      lastNonZeroPrice = pricesPast10Days[i] != 0 ? pricesPast10Days[i] : lastNonZeroPrice;
+    } 
+
+    let previousPrice = 0;
+    for (let i = timestamps.length - 1; i >= 0; i--) {
+      if (timestamps[i] < Date.now() - oneDay*numDays) {
+        previousPrice = timestamps[i];
+        break;
+      }
+    }
+
+    for (let i = 0; i < numDays; i++) {
+      if (pricesPast10Days[i] != 0) {
+        previousPrice = pricesPast10Days[i];
+        continue;
+      }
+      pricesPast10Days[i] = previousPrice == 0 ? lastNonZeroPrice : previousPrice;
+    }
+
+    const min = Math.min(...pricesPast10Days);
+    const max = Math.max(...pricesPast10Days);
+
+    const X_std = pricesPast10Days.map(value => (value - min)*1.0 / (max - min));
+
+    const reshapedInput = tf.reshape(X_std, [1, X_std.length, 1]);
+
+    const price = (model.predict(reshapedInput).arraySync()[0] * (max - min) + min);
+    setNNPrice(price);
+  }
+
+  function calculateAverage(array) {
+    if (!array || array.length === 0) return 0;
+    const sum = array.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+    const average = sum / array.length;
+    return average;
+  }
+
   useEffect(() => {
     const bootstrapDexBook = async () => {
       setSellOrdersLoading(true);
@@ -392,6 +449,21 @@ export default function Home() {
       setChartLabels(chartLabelsComputed);
       setPriceGraphLoading(false);
 
+      const nnModelRead = new ethers.Contract(nnAddress, nnAbi, new ethers.providers.JsonRpcProvider(rpcUrl));
+      const numberOfChunks = await nnModelRead.getNumberOfChunks();
+      let data = "";
+      for (let i = 0; i < numberOfChunks; i++) {
+        const chunk = await nnModelRead.getNNChunk(i);
+        data += chunk;
+      }
+      const modelData = JSON.parse(data);
+      const modelJson = JSON.parse(modelData.model);
+      const weights = modelData.weights.map(weightArray => tf.tensor(weightArray));
+      const model = await tf.models.modelFromJSON(modelJson);
+      model.setWeights(weights);
+      setNNModel(model);
+      predictPrice(model, chartLabelsComputed, chartDataComputed)
+
       let pairsRead = [];
       for (const dexBookPairAddress of dexbooks) {
         if (dexBookPairAddress === dexBookAddress) continue;
@@ -477,6 +549,7 @@ export default function Home() {
       dexBookContractRead.on("BuyMarketOrderFilled", async (timestamp, price, maker, amount) => {
         const newPrice = price / pricePrecisionRead;
         const newTimestamp = moment(new Date(Number(timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss");
+        if (dexBookAddress == dexbooks[2]) predictPrice(nnModel, [...chartLabels, newTimestamp], [...chartData, newPrice]);
         setPrice(newPrice);
         setPriceColor(buyColor);
         setChartData(chartData => [...chartData, newPrice]);
@@ -486,6 +559,7 @@ export default function Home() {
       dexBookContractRead.on("SellMarketOrderFilled", async (timestamp, price, maker, amount) => {
         const newPrice = price / pricePrecisionRead;
         const newTimestamp = moment(new Date(Number(timestamp) * 1000)).format("YYYY-MM-DD HH:mm:ss");
+        if (dexBookAddress == dexbooks[2]) predictPrice(nnModel, [...chartLabels, newTimestamp], [...chartData, newPrice]);
         setPrice(newPrice);
         setPriceColor(sellColor);
         setChartData(chartData => [...chartData, newPrice]);
@@ -666,10 +740,12 @@ export default function Home() {
         {tokenSymbolsLoading && (<Loading style = {{marginLeft: "3%"}} css={{$$loadingColor: "grey"}}></Loading>)}
         {!tokenSymbolsLoading && (<NavbarButton onClick={tokenBFaucet} label={tokenBSymbol + " Faucet"}> </NavbarButton>)}
         {tokenSymbolsLoading && (<Loading style = {{marginLeft: "6%"}} css={{$$loadingColor: "grey"}}></Loading>)}
+        {dexBookAddress == dexbooks[2] && <NavbarLabel label={nnPrice.toFixed(3)} isLoading={priceLoading} tokenSymbol={tokenBSymbol} toolTipLabel="Neural network 24h price estimate based on last 10 days"></NavbarLabel>}
+        {dexBookAddress != dexbooks[2] && <NavbarLabel label="N/A" isLoading={priceLoading} tokenSymbol={tokenBSymbol} toolTipLabel="Price estimate only available on WBTC/USDC"></NavbarLabel>}
       </div>
       <div className={styles.rightSection}>
-        <NavbarLabel label={tokenABalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenASymbol}></NavbarLabel>
-        <NavbarLabel label={tokenBBalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenBSymbol}></NavbarLabel>
+        <NavbarLabel label={tokenABalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenASymbol} toolTipLabel={tokenASymbol + " Balance"}></NavbarLabel>
+        <NavbarLabel label={tokenBBalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenBSymbol} toolTipLabel={tokenBSymbol + " Balance"}></NavbarLabel>
         {account ? (
           <NavbarButton onClick={() => { }} label={account.slice(0, 6) + "..." + account.slice(-4)}>
           </NavbarButton>
@@ -809,7 +885,7 @@ export default function Home() {
                   </tr>
                 ))}
                 {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
-                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)}>
+                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)} style={{cursor: "pointer"}}>
                     <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
                     <td>{to4decimals(order.amount)}</td>
                     <td>{to4decimals(order.total)}</td>
