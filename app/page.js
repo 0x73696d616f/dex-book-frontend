@@ -76,7 +76,6 @@ export default function Home() {
   const [tokenBBalance, setTokenBBalance] = useState(0);
 
   const [nnPrice, setNNPrice] = useState(0);
-  const [nnModel, setNNModel] = useState(null);
   const nnAddress = "0xD87D11f9832e39E4394D4118766ed9e76188e51A";
 
   const [dexBookAddress, setDexBookAddress] = useState("0xC74D816A74232C800E698FEFA053AE5126C069A8");
@@ -462,7 +461,6 @@ export default function Home() {
       const weights = modelData.weights.map(weightArray => tf.tensor(weightArray));
       const model = await tf.models.modelFromJSON(modelJson);
       model.setWeights(weights);
-      setNNModel(model);
       predictPrice(model, chartLabelsComputed, chartDataComputed)
 
       let pairsRead = [];
