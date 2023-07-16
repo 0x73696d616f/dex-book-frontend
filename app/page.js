@@ -11,6 +11,7 @@ import BuySellButton from './BuySellButton';
 import LimitMarketButton from './LimitMarketButton';
 import NavbarButton from './NavbarButton';
 import NavbarLabel from './NavbarLabel';
+import DocsLabel from './DocsLabel';
 import { Loading } from '@nextui-org/react';
 import moment from 'moment';
 import * as tf from '@tensorflow/tfjs'
@@ -757,6 +758,7 @@ export default function Home() {
       <div className={styles.rightSection}>
         <NavbarLabel label={tokenABalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenASymbol} toolTipLabel={tokenASymbol + " Balance"}></NavbarLabel>
         <NavbarLabel label={tokenBBalance.toFixed(3)} isLoading={tokenSymbolsLoading} tokenSymbol={tokenBSymbol} toolTipLabel={tokenBSymbol + " Balance"}></NavbarLabel>
+        <DocsLabel></DocsLabel>
         {account ? (
           <NavbarButton onClick={() => { }} label={account.slice(0, 6) + "..." + account.slice(-4)}>
           </NavbarButton>
