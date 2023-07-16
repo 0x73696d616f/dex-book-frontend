@@ -28,7 +28,8 @@ const PriceChart = ({ chartLabels, chartData }) => {
                         time: {
                             tooltipFormat: "YYYY-MM-DD HH:mm",
                         },
-                        min: Date.now() - 3600*24*1000
+                        min: chartLabels[0],
+                        max: chartLabels[chartLabels.length - 1]
                     }
                 },
                 responsive: true,

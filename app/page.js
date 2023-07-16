@@ -18,8 +18,6 @@ import * as tf from '@tensorflow/tfjs'
 import styles from './page.module.css'
 import { ethers } from 'ethers';
 import Web3 from 'web3';
-import * as dfd from "danfojs";
-import { readCSV, DataFrame } from "danfojs"
 
 export default function Home() {
   const nnAbi = require("../contracts/NN.json").abi;
@@ -78,12 +76,12 @@ export default function Home() {
   const [nnPrice, setNNPrice] = useState(0);
   const nnAddress = "0xD87D11f9832e39E4394D4118766ed9e76188e51A";
 
-  const [dexBookAddress, setDexBookAddress] = useState("0xC74D816A74232C800E698FEFA053AE5126C069A8");
+  const [dexBookAddress, setDexBookAddress] = useState("0x78a82ACE5c7133918ca7Be3DB3EAb3a1046232AC");
 
   const dexbooks = [
     "0x8734c402782382E6eC48638Fc64A11C4DCcdDce1",
     "0xE002bc2Eab8dE575a372D13eD5ABAAb206ABb0ba",
-    "0xC74D816A74232C800E698FEFA053AE5126C069A8"
+    "0x78a82ACE5c7133918ca7Be3DB3EAb3a1046232AC"
   ];
 
   const buyColor = "green"
@@ -113,18 +111,19 @@ export default function Home() {
     setSelectedRow(null);
   };
 
-  const handleRowClick = (order) => {
+  const handleRowClick = (order, isBuy) => {
     setSelectedRow(order);
     setShowPopup(true);
-    setPopupPrice(order.price);
-    setPopupAmount(order.amount);
+    const adjustedPrice = isBuy ? pricePrecision / order.price : order.price / pricePrecision;
+    setPopupPrice(to4decimals(adjustedPrice));
+    setPopupAmount(to4decimals(order.amount));
   };
 
   const handleSave = async () => {
     if (isBuyOrdersClicked) {
       const oldOrder = selectedRow;
       const oldBuyAmountWithDecimalsFactor = BigInt(Math.round(oldOrder.amount * tokenADecimalsFactor));
-      const oldBuyPriceWithPrecision = BigInt(Math.round(pricePrecision / oldOrder.price));
+      const oldBuyPriceWithPrecision = BigInt(oldOrder.price);
       const oldTokenBamountWithDecimalsFactor = BigInt(await dexBookRead.tokenAToTokenB(oldBuyAmountWithDecimalsFactor, oldBuyPriceWithPrecision));
 
       const newOrder = { price: popupPrice, amount: popupAmount };
@@ -143,7 +142,7 @@ export default function Home() {
     } else if (isSellOrdersClicked) {
       const oldOrder = selectedRow;
       const oldSellAmountWithDecimalsFactor = BigInt(Math.round(oldOrder.amount * oldOrder.price * tokenBDecimalsFactor));
-      const oldSellPriceWithPrecision = BigInt(Math.round(oldOrder.price * pricePrecision));
+      const oldSellPriceWithPrecision = BigInt(oldOrder.price);
       const oldTokenAamountWithDecimalsFactor = BigInt(await dexBookRead.tokenBToTokenA(oldSellAmountWithDecimalsFactor, oldSellPriceWithPrecision));
 
       const newOrder = { price: popupPrice, amount: popupAmount };
@@ -173,11 +172,11 @@ export default function Home() {
     if (isBuyOrdersClicked) {
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
       const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-      await dexBookContractWrite.removeBuyLimitOrder(selectedRow.id, BigInt(pricePrecision / selectedRow.price));
+      await dexBookContractWrite.removeBuyLimitOrder(selectedRow.id, BigInt(selectedRow.price));
     } else if (isSellOrdersClicked) {
       const signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
       const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
-      await dexBookContractWrite.removeSellLimitOrder(selectedRow.id, BigInt(selectedRow.price * pricePrecision));
+      await dexBookContractWrite.removeSellLimitOrder(selectedRow.id, BigInt(selectedRow.price));
     }
     setSelectedRow(null);
     setShowPopup(false);
@@ -186,7 +185,7 @@ export default function Home() {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   function to4decimals(number) {
-    return number.toFixed(3);
+    return Number(number).toFixed(3);
   }
 
   async function placeBuyLimitOrder() {
@@ -200,10 +199,10 @@ export default function Home() {
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
 
-    let prevPrice = buyOrders.findLast(order => Math.round(pricePrecision / order.price) < Number(buyPriceWithPrecision));
-    let nextPrice = buyOrders.find(order => Math.round(pricePrecision / order.price) > Number(buyPriceWithPrecision));
-    prevPrice = prevPrice ? BigInt(Math.round(pricePrecision / prevPrice.price)) : 0;
-    nextPrice = nextPrice ? BigInt(Math.round(pricePrecision / nextPrice.price)) : 0;
+    let prevPrice = buyOrders.findLast(order => order.price < buyPriceWithPrecision);
+    let nextPrice = buyOrders.find(order => order.price > buyPriceWithPrecision);
+    prevPrice = prevPrice ? prevPrice.price : 0;
+    nextPrice = nextPrice ? nextPrice.price : 0;
 
     await dexBookContractWrite.placeBuyLimitOrder(buyAmountWithDecimalsFactor, buyPriceWithPrecision, [prevPrice, 0], [nextPrice, 0]);
   }
@@ -217,10 +216,10 @@ export default function Home() {
 
     await approveTokenA(signer, tokenAamountWithDecimalsFactor);
 
-    let prevPrice = sellOrders.findLast(order => Math.round(order.price * pricePrecision) < Number(sellPriceWithPrecision));
-    let nextPrice = sellOrders.find(order => Math.round(order.price * pricePrecision) > Number(sellPriceWithPrecision));
-    prevPrice = prevPrice ? BigInt(Math.round(prevPrice.price * pricePrecision)) : 0;
-    nextPrice = nextPrice ? BigInt(Math.round(nextPrice.price * pricePrecision)) : 0;
+    let prevPrice = sellOrders.find(order => order.price < sellPriceWithPrecision);
+    let nextPrice = sellOrders.findLast(order => order.price > sellPriceWithPrecision);
+    prevPrice = prevPrice ? prevPrice.price : 0;
+    nextPrice = nextPrice ? nextPrice.price : 0;
 
     const dexBookContractWrite = new ethers.Contract(dexBookAddress, dexBookAbi, signer);
     await dexBookContractWrite.placeSellLimitOrder(sellAmountWithDecimalsFactor, sellPriceWithPrecision, [prevPrice, 0], [nextPrice, 0]);
@@ -307,9 +306,6 @@ export default function Home() {
   function predictPrice(model, timestamps, prices) {
     timestamps = timestamps.map((timestamp) => new Date(timestamp).getTime());
 
-    console.log(timestamps);
-    console.log(prices);
-
     const numDays = 10;
     let pricesPast10Days = [...Array(numDays).keys()];
     let oneDay = 24 * 60 * 60 * 1000;
@@ -342,7 +338,7 @@ export default function Home() {
     const min = Math.min(...pricesPast10Days);
     const max = Math.max(...pricesPast10Days);
 
-    const X_std = pricesPast10Days.map(value => (value - min)*1.0 / (max - min));
+    const X_std = pricesPast10Days.map(value => min != max ? (value - min)*1.0 / (max - min) : 1.0);
 
     const reshapedInput = tf.reshape(X_std, [1, X_std.length, 1]);
 
@@ -397,14 +393,20 @@ export default function Home() {
           const amount = tokenBAmount / price;
           accumulatedAmount += amount;
           userSellOrdersComputed[order.maker]
-            ? userSellOrdersComputed[order.maker].push({ id: order.id, price: price, amount: amount, total: tokenBAmount })
-            : userSellOrdersComputed[order.maker] = [{ id: order.id, price: price, amount: amount, total: tokenBAmount }];
+            ? userSellOrdersComputed[order.maker].unshift({ id: order.id, price: priceBracket.price, amount: amount, total: tokenBAmount })
+            : userSellOrdersComputed[order.maker] = [{ id: order.id, price: priceBracket.price, amount: amount, total: tokenBAmount }];
         }
-        sellOrdersComputed.push({ price: price, amount: accumulatedAmount, total: accumulatedCost });
+        const index = sellOrdersComputed.findIndex(order => to4decimals(order.price / pricePrecisionRead) === to4decimals(priceBracket.price / pricePrecisionRead));
+        if (index === -1) {
+          sellOrdersComputed.unshift({ price: priceBracket.price, amount: accumulatedAmount, total: accumulatedCost });
+        } else {
+          sellOrdersComputed[index].amount += accumulatedAmount;
+          sellOrdersComputed[index].total += accumulatedCost;
+        }
       }
       setSellOrders(sellOrdersComputed);
       setSellOrdersLoading(false);
-      setSellPrice(sellOrdersComputed.length > 0 ? sellOrdersComputed[sellOrdersComputed.length - 1].price.toFixed(3) : 0);
+      setSellPrice(sellOrdersComputed.length > 0 ? Number(sellOrdersComputed[sellOrdersComputed.length - 1].price / pricePrecisionRead).toFixed(3) : 0);
       setUserSellOrders(userSellOrdersComputed);
       setUserSellOrdersLoading(false);
 
@@ -422,14 +424,20 @@ export default function Home() {
           accumulatedCost += cost;
 
           userBuyOrdersComputed[order.maker]
-            ? userBuyOrdersComputed[order.maker].push({ id: order.id, price: price, amount: amount, total: cost })
-            : userBuyOrdersComputed[order.maker] = [{ id: order.id, price: price, amount: amount, total: cost }];
+            ? userBuyOrdersComputed[order.maker].push({ id: order.id, price: priceBracket.price, amount: amount, total: cost })
+            : userBuyOrdersComputed[order.maker] = [{ id: order.id, price: priceBracket.price, amount: amount, total: cost }];
         }
-        buyOrdersComputed.push({ price: price, amount: accumulatedAmount, total: accumulatedCost });
+        const index = buyOrdersComputed.findIndex(order => to4decimals(pricePrecisionRead / order.price) === to4decimals(pricePrecisionRead / priceBracket.price));
+        if (index === -1) {
+          buyOrdersComputed.push({ price: priceBracket.price, amount: accumulatedAmount, total: accumulatedCost });
+        } else {
+          buyOrdersComputed[index].amount += accumulatedAmount;
+          buyOrdersComputed[index].total += accumulatedCost;
+        }
       }
       setBuyOrders(buyOrdersComputed);
       setBuyOrdersLoading(false);
-      setBuyPrice(buyOrdersComputed.length > 0 ? buyOrdersComputed[0].price.toFixed(3) : 0);
+      setBuyPrice(buyOrdersComputed.length > 0 ? Number(pricePrecisionRead / buyOrdersComputed[0].price).toFixed(3) : 0);
       setUserBuyOrders(userBuyOrdersComputed);
       setUserBuyOrdersLoading(false);
 
@@ -499,11 +507,11 @@ export default function Home() {
         const priceComputed = pricePrecisionRead / price;
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
-        const newBuyOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
+        const newBuyOrder = { id: orderId, price: price, amount: amountComputed, total: totalComputed };
         setBuyOrders(prevBuyOrders => {
-          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevBuyOrders.findIndex(order => to4decimals(pricePrecisionRead / order.price) == to4decimals(priceComputed));
           if (index === -1) {
-            return [...prevBuyOrders, newBuyOrder].sort((a, b) => b.price - a.price)
+            return [...prevBuyOrders, newBuyOrder].sort((a, b) => a.price - b.price)
           }
           prevBuyOrders[index].amount += amountComputed;
           prevBuyOrders[index].total += totalComputed;
@@ -514,7 +522,7 @@ export default function Home() {
           let newUserBuyOrders = userBuyOrders[maker];
           if (!newUserBuyOrders) newUserBuyOrders = [];
           newUserBuyOrders.push(newBuyOrder);
-          newUserBuyOrders.sort((a, b) => b.price - a.price);
+          newUserBuyOrders.sort((a, b) => a.price - b.price);
           userBuyOrders[maker] = newUserBuyOrders;
           return userBuyOrders
         });
@@ -524,11 +532,11 @@ export default function Home() {
         const totalComputed = amount / tokenBDecimalsFactorRead;
         const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
-        const newSellOrder = { id: orderId, price: priceComputed, amount: amountComputed, total: totalComputed };
+        const newSellOrder = { id: orderId, price: price, amount: amountComputed, total: totalComputed };
         setSellOrders(sellOrders => {
-          const index = sellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = sellOrders.findIndex(order => to4decimals(order.price / pricePrecisionRead) == to4decimals(priceComputed));
           if (index === -1) {
-            return [...sellOrders, newSellOrder].sort((a, b) => a.price - b.price)
+            return [...sellOrders, newSellOrder].sort((a, b) => b.price - a.price)
           }
 
           sellOrders[index].amount += amountComputed;
@@ -539,7 +547,7 @@ export default function Home() {
           let newUserSellOrders = userSellOrders[maker];
           if (!newUserSellOrders) newUserSellOrders = [];
           newUserSellOrders.push(newSellOrder);
-          newUserSellOrders.sort((a, b) => a.price - b.price);
+          newUserSellOrders.sort((a, b) => b.price - a.price);
           userSellOrders[maker] = newUserSellOrders;
           return userSellOrders;
         });
@@ -574,7 +582,7 @@ export default function Home() {
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
         setBuyOrders(prevBuyOrders => {
-          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevBuyOrders.findIndex(order => to4decimals(pricePrecisionRead / order.price) == to4decimals(priceComputed));
           const newAmount = prevBuyOrders[index].amount - amountComputed;
           if (newAmount.toFixed(4) <= 0) {
             prevBuyOrders.splice(index, 1);
@@ -585,7 +593,7 @@ export default function Home() {
           return [...prevBuyOrders];
         });
         setUserBuyOrders(prevUserBuyOrders => {
-          const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
+          const index = prevUserBuyOrders[maker].findIndex(order => Number(order.price) == Number(price) && order.id === orderId_);
           const newAmount = prevUserBuyOrders[maker][index].amount - amountComputed;
           if (newAmount <= 0) {
             prevUserBuyOrders[maker].splice(index, 1);
@@ -602,7 +610,7 @@ export default function Home() {
         const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
         setSellOrders(prevSellOrders => {
-          const index = prevSellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevSellOrders.findIndex(order => to4decimals(order.price / pricePrecisionRead) == to4decimals(priceComputed));
           const newAmount = prevSellOrders[index].amount - amountComputed;
           if (newAmount.toFixed(4) <= 0) {
             prevSellOrders.splice(index, 1);
@@ -613,7 +621,7 @@ export default function Home() {
           return [...prevSellOrders];
         });
         setUserSellOrders(prevUserSellOrders => {
-          const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
+          const index = prevUserSellOrders[maker].findIndex(order => Number(order.price) == Number(price) && order.id === orderId_);
           const newAmount = prevUserSellOrders[maker][index].amount - amountComputed;
           if (newAmount.toFixed(4) <= 0) {
             prevUserSellOrders[maker].splice(index, 1);
@@ -630,7 +638,7 @@ export default function Home() {
         const amountComputed = amount / tokenADecimalsFactorRead;
         const totalComputed = amountComputed * priceComputed;
         setBuyOrders(prevBuyOrders => {
-          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevBuyOrders.findIndex(order => to4decimals(pricePrecisionRead / order.price) == to4decimals(priceComputed));
           const newAmount = prevBuyOrders[index].amount - amountComputed;
           if (newAmount.toFixed(4) <= 0) {
             prevBuyOrders.splice(index, 1);
@@ -641,7 +649,7 @@ export default function Home() {
           return [...prevBuyOrders];
         });
         setUserBuyOrders(prevUserBuyOrders => {
-          const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
+          const index = prevUserBuyOrders[maker].findIndex(order => Number(order.price) == Number(price) && order.id === orderId_);
           prevUserBuyOrders[maker].splice(index, 1);
           return prevUserBuyOrders;
         });
@@ -652,7 +660,7 @@ export default function Home() {
         const priceComputed = price / pricePrecisionRead;
         const amountComputed = totalComputed / priceComputed;
         setSellOrders(prevSellOrders => {
-          const index = prevSellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevSellOrders.findIndex(order => to4decimals(order.price / pricePrecisionRead) == to4decimals(priceComputed));
           const newAmount = prevSellOrders[index].amount - amountComputed;
           if (newAmount.toFixed(4) <= 0) {
             prevSellOrders.splice(index, 1);
@@ -663,7 +671,7 @@ export default function Home() {
           return [...prevSellOrders];
         });
         setUserSellOrders(prevUserSellOrders => {
-          const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId_);
+          const index = prevUserSellOrders[maker].findIndex(order => Number(order.price) == Number(price) && order.id === orderId_);
           prevUserSellOrders[maker].splice(index, 1);
           return prevUserSellOrders;
         });
@@ -677,13 +685,13 @@ export default function Home() {
         const totalComputed = Number(amountComputed * priceComputed);
 
         setBuyOrders(prevBuyOrders => {
-          const index = prevBuyOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevBuyOrders.findIndex(order => to4decimals(pricePrecisionRead / order.price) == to4decimals(priceComputed));
           prevBuyOrders[index].amount = prevBuyOrders[index].amount - oldAmountComputed + amountComputed;
           prevBuyOrders[index].total = prevBuyOrders[index].total - oldTotalComputed + totalComputed;
           return [...prevBuyOrders];
         });
         setUserBuyOrders(prevUserBuyOrders => {
-          const index = prevUserBuyOrders[maker].findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4) && order.id === orderId);
+          const index = prevUserBuyOrders[maker].findIndex(order => Number(order.price) === Number(price) && order.id === orderId);
           prevUserBuyOrders[maker][index].amount = amountComputed;
           prevUserBuyOrders[maker][index].total = totalComputed;
           return prevUserBuyOrders;
@@ -697,13 +705,13 @@ export default function Home() {
         const amountComputed = Number(totalComputed / priceComputed);
         const oldAmountComputed = Number(oldTotalComputed / priceComputed);
         setSellOrders(prevSellOrders => {
-          const index = prevSellOrders.findIndex(order => order.price.toFixed(4) === priceComputed.toFixed(4));
+          const index = prevSellOrders.findIndex(order => to4decimals(order.price / pricePrecisionRead) == to4decimals(priceComputed));
           prevSellOrders[index].amount = prevSellOrders[index].amount - oldAmountComputed + amountComputed;
           prevSellOrders[index].total = prevSellOrders[index].total - oldTotalComputed + totalComputed;
           return [...prevSellOrders];
         });
         setUserSellOrders(prevUserSellOrders => {
-          const index = prevUserSellOrders[maker].findIndex(order => order.price.toFixed(4) == priceComputed.toFixed(4) && order.id === orderId);
+          const index = prevUserSellOrders[maker].findIndex(order => Number(order.price) == Number(price) && order.id === orderId);
           prevUserSellOrders[maker][index].amount = amountComputed;
           prevUserSellOrders[maker][index].total = totalComputed;
           return prevUserSellOrders;
@@ -773,7 +781,7 @@ export default function Home() {
               <tbody>
                 {sellOrders && sellOrders.length > 0 && sellOrders.map((order) => (
                   <tr key={order.price}>
-                    <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
+                    <td style={{ color: sellColor }}>{to4decimals(order.price / pricePrecision)}</td>
                     <td>{to4decimals(order.amount)}</td>
                     <td>{to4decimals(order.total)}</td>
                   </tr>
@@ -800,7 +808,7 @@ export default function Home() {
               <tbody>
                 {buyOrders.map((order) => (
                   <tr key={order.price}>
-                    <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
+                    <td style={{ color: buyColor }}>{to4decimals(pricePrecision / order.price)}</td>
                     <td>{to4decimals(order.amount)}</td>
                     <td>{to4decimals(order.total)}</td>
                   </tr>
@@ -881,15 +889,15 @@ export default function Home() {
               </thead>
               <tbody>
                 {account && isSellOrdersClicked && userSellOrders[account] && userSellOrders[account].length > 0 && userSellOrders[account].map((order) => (
-                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)} style={{cursor: "pointer"}}>
-                    <td style={{ color: sellColor }}>{to4decimals(order.price)}</td>
+                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order, false)} style={{cursor: "pointer"}}>
+                    <td style={{ color: sellColor }}>{to4decimals(Number(order.price / pricePrecision))}</td>
                     <td>{to4decimals(order.amount)}</td>
                     <td>{to4decimals(order.total)}</td>
                   </tr>
                 ))}
                 {account && isBuyOrdersClicked && userBuyOrders[account] && userBuyOrders[account].length > 0 && userBuyOrders[account].map((order) => (
-                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order)} style={{cursor: "pointer"}}>
-                    <td style={{ color: buyColor }}>{to4decimals(order.price)}</td>
+                  <tr key={order.price.toString() + order.id.toString()} onClick={() => handleRowClick(order, true)} style={{cursor: "pointer"}}>
+                    <td style={{ color: buyColor }}>{to4decimals(Number(pricePrecision / order.price))}</td>
                     <td>{to4decimals(order.amount)}</td>
                     <td>{to4decimals(order.total)}</td>
                   </tr>
